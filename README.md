@@ -13,9 +13,9 @@ Mansor, en conjunto con NETRIX Corporation.
 
 | Nombre | Rol |
 |---|---|
-| Diego Alejandro Medina Martinez | Tech Lead — NETRIX Corporation |
-| Andres Felipe Moreno Beltrán | Desarrollador — Mansor |
-| Santiago Moralez Orozco | Desarrollador — Mansor |
+| Diego Alejandro Medina Martinez | Ingeniero — UMB |
+| Andres Felipe Moreno Beltrán | Ingeniero — UMB |
+| Santiago Moralez Orozco | Ingeniero — UMB |
 
 ## Alcance (resumen)
 
@@ -71,8 +71,6 @@ migraciones viven en `supabase/migrations/` y se aplican con `npx supabase db pu
 
 ## Documentación
 
-- [`CLAUDE.md`](CLAUDE.md) — contexto persistente del proyecto para asistencia con
-  Claude Code: alcance, reglas, stack, roles, seguridad, convenciones.
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — arquitectura y
   estructura de carpetas.
 - [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — modelo
@@ -88,8 +86,7 @@ migraciones viven en `supabase/migrations/` y se aplican con `npx supabase db pu
 
 ## Proceso de trabajo
 
-El desarrollo avanza por fases con gates de aprobación explícitos (ver `CLAUDE.md`
-sección 3). No se avanza de fase sin autorización. Una rama de Git por fase
+ Una rama de Git por fase
 (`fase/N-nombre`), integración a `main` solo tras aprobación explícita.
 
 ## Datos y confidencialidad
