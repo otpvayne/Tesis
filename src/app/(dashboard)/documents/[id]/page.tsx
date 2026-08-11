@@ -4,6 +4,7 @@ import { getDocumentById } from "@/modules/documents/queries";
 import { logAuditEvent } from "@/modules/audit/log";
 import { deleteDocument } from "@/modules/documents/actions";
 import { DOCUMENTS_STORAGE_BUCKET } from "@/modules/documents/types";
+import { formatDateTime } from "@/lib/utils/format-date";
 
 interface DocumentDetailPageProps {
   params: Promise<{ id: string }>;
@@ -60,7 +61,7 @@ export default async function DocumentDetailPage({ params }: DocumentDetailPageP
         <dd className="text-neutral-900 dark:text-neutral-50">{doc.status}</dd>
         <dt className="text-neutral-500 dark:text-neutral-400">Creado</dt>
         <dd className="text-neutral-900 dark:text-neutral-50">
-          {new Date(doc.created_at).toLocaleString("es-CO")}
+          {formatDateTime(doc.created_at)}
         </dd>
       </dl>
 
