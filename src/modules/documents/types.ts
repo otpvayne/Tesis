@@ -1,0 +1,11 @@
+export const DOCUMENT_TYPES = ["invoice_es"] as const;
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+
+export const DOCUMENT_STATUSES = [
+  "uploaded",
+  "processing",
+  "processed",
+  "validated",
+  "failed",
+] as const;
+export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
