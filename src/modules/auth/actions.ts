@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { logAuditEvent } from "@/modules/audit/log";
 import type { AuthActionState } from "@/modules/auth/state";
 
 export async function signIn(
@@ -12,10 +13,14 @@ export async function signIn(
   const password = String(formData.get("password") ?? "");
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return { error: error.message };
+  }
+
+  if (data.user) {
+    await logAuditEvent(supabase, { actorId: data.user.id, action: "LOGIN" });
   }
 
   redirect("/");
