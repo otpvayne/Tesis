@@ -5,6 +5,7 @@ import { logAuditEvent } from "@/modules/audit/log";
 import { deleteDocument } from "@/modules/documents/actions";
 import { DOCUMENTS_STORAGE_BUCKET } from "@/modules/documents/types";
 import { formatDateTime } from "@/lib/utils/format-date";
+import { getDocumentStatusLabel, getDocumentTypeLabel } from "@/lib/constants/document-display";
 
 interface DocumentDetailPageProps {
   params: Promise<{ id: string }>;
@@ -56,9 +57,13 @@ export default async function DocumentDetailPage({ params }: DocumentDetailPageP
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
         <dt className="text-neutral-500 dark:text-neutral-400">Tipo</dt>
-        <dd className="text-neutral-900 dark:text-neutral-50">{doc.document_type}</dd>
+        <dd className="text-neutral-900 dark:text-neutral-50">
+          {getDocumentTypeLabel(doc.document_type)}
+        </dd>
         <dt className="text-neutral-500 dark:text-neutral-400">Estado</dt>
-        <dd className="text-neutral-900 dark:text-neutral-50">{doc.status}</dd>
+        <dd className="text-neutral-900 dark:text-neutral-50">
+          {getDocumentStatusLabel(doc.status)}
+        </dd>
         <dt className="text-neutral-500 dark:text-neutral-400">Creado</dt>
         <dd className="text-neutral-900 dark:text-neutral-50">
           {formatDateTime(doc.created_at)}

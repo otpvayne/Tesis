@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import { createDocument } from "@/modules/documents/actions";
 import { createDocumentInitialState } from "@/modules/documents/state";
+import { DOCUMENT_TYPES } from "@/modules/documents/types";
+import { getDocumentTypeLabel } from "@/lib/constants/document-display";
 
 export default function NewDocumentPage() {
   const [state, formAction, pending] = useActionState(createDocument, createDocumentInitialState);
@@ -17,7 +19,7 @@ export default function NewDocumentPage() {
         <div className="flex flex-col gap-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">
           Tipo de documento
           <p className="rounded-md border border-neutral-200 bg-neutral-100 px-4 py-3 text-base text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
-            Factura (invoice_es)
+            {getDocumentTypeLabel(DOCUMENT_TYPES[0])}
           </p>
         </div>
 

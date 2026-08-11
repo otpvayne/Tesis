@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { listDocuments, type DocumentWithOwnerEmail } from "@/modules/documents/queries";
 import { DOCUMENT_STATUSES, type DocumentStatus } from "@/modules/documents/types";
+import { getDocumentStatusLabel } from "@/lib/constants/document-display";
 
 interface AdminDocumentsSearchParams {
   page?: string;
@@ -76,7 +77,9 @@ export default async function AdminDocumentsPage({ searchParams }: AdminDocument
                 <span className="text-neutral-900 dark:text-neutral-50">
                   {doc.owner?.email ?? doc.owner_id}
                 </span>
-                <span className="text-neutral-500 dark:text-neutral-400">{doc.status}</span>
+                <span className="text-neutral-500 dark:text-neutral-400">
+                  {getDocumentStatusLabel(doc.status)}
+                </span>
               </Link>
             </li>
           ))}

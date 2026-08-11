@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { listDocuments } from "@/modules/documents/queries";
 import { DOCUMENT_STATUSES, type DocumentStatus } from "@/modules/documents/types";
+import { getDocumentStatusLabel, getDocumentTypeLabel } from "@/lib/constants/document-display";
 
 interface DocumentsSearchParams {
   page?: string;
@@ -69,7 +70,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
           <option value="">Todos los estados</option>
           {DOCUMENT_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {s}
+              {getDocumentStatusLabel(s)}
             </option>
           ))}
         </select>
@@ -106,9 +107,11 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
                 className="flex items-center justify-between px-4 py-3 text-sm"
               >
                 <span className="text-neutral-900 dark:text-neutral-50">
-                  {doc.document_type}
+                  {getDocumentTypeLabel(doc.document_type)}
                 </span>
-                <span className="text-neutral-500 dark:text-neutral-400">{doc.status}</span>
+                <span className="text-neutral-500 dark:text-neutral-400">
+                  {getDocumentStatusLabel(doc.status)}
+                </span>
               </Link>
             </li>
           ))}
