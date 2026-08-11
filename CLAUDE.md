@@ -85,6 +85,28 @@ Commits: Conventional Commits (`feat(scope): ...`, `fix`, `test`, `docs`, `refac
 Nunca reescribir historial compartido. Tags solo al integrar una fase importante a
 `main` (`v0.1.0-foundation`, `v0.2.0-documents`, ..., `v1.0.0`).
 
+### Procedimiento de integración a `main` (al recibir "APROBAR FASE X. INTEGRAR A MAIN...")
+
+1. `git status` en la rama de la fase — confirmar árbol limpio, sin cambios externos no
+   reconocidos (si los hay: DETENERSE e informar "CAMBIOS EXTERNOS DETECTADOS").
+2. `git fetch origin` y confirmar que la rama de la fase está sincronizada con
+   `origin/<rama>` (sin commits locales ni remotos pendientes de traer).
+3. Integrar a `main`:
+   - Si `main` no existe todavía, crearla desde la rama de la fase (no hay conflicto
+     posible — es la primera integración).
+   - Si `main` ya existe, traer `origin/main`, hacer merge de la rama de la fase sobre
+     `main` (fast-forward si es posible; si hay conflictos, resolverlos preservando el
+     trabajo de ambas partes, nunca descartando cambios sin analizarlos).
+4. `git push` de `main` al remoto.
+5. Crear la siguiente rama de fase (`fase/N+1-nombre`) desde el `main` ya actualizado.
+6. Tag solo si la fase integrada corresponde a un hito de versión (ver convención de
+   tags arriba) — no en cada integración.
+7. Reportar rama, commits, último commit y estado del push como en cualquier cierre de
+   fase (§3 arriba).
+
+La rama de la fase ya integrada no se borra automáticamente — queda como evidencia
+histórica salvo que el equipo pida explícitamente eliminarla.
+
 ## 4. Alcance
 
 Aplicación **web** únicamente (Next.js). No React Native / Expo / apps nativas. Mobile
