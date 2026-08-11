@@ -85,6 +85,28 @@ Commits: Conventional Commits (`feat(scope): ...`, `fix`, `test`, `docs`, `refac
 Nunca reescribir historial compartido. Tags solo al integrar una fase importante a
 `main` (`v0.1.0-foundation`, `v0.2.0-documents`, ..., `v1.0.0`).
 
+### Procedimiento de integración a `main` (al recibir "APROBAR FASE X. INTEGRAR A MAIN...")
+
+1. `git status` en la rama de la fase — confirmar árbol limpio, sin cambios externos no
+   reconocidos (si los hay: DETENERSE e informar "CAMBIOS EXTERNOS DETECTADOS").
+2. `git fetch origin` y confirmar que la rama de la fase está sincronizada con
+   `origin/<rama>` (sin commits locales ni remotos pendientes de traer).
+3. Integrar a `main`:
+   - Si `main` no existe todavía, crearla desde la rama de la fase (no hay conflicto
+     posible — es la primera integración).
+   - Si `main` ya existe, traer `origin/main`, hacer merge de la rama de la fase sobre
+     `main` (fast-forward si es posible; si hay conflictos, resolverlos preservando el
+     trabajo de ambas partes, nunca descartando cambios sin analizarlos).
+4. `git push` de `main` al remoto.
+5. Crear la siguiente rama de fase (`fase/N+1-nombre`) desde el `main` ya actualizado.
+6. Tag solo si la fase integrada corresponde a un hito de versión (ver convención de
+   tags arriba) — no en cada integración.
+7. Reportar rama, commits, último commit y estado del push como en cualquier cierre de
+   fase (§3 arriba).
+
+La rama de la fase ya integrada no se borra automáticamente — queda como evidencia
+histórica salvo que el equipo pida explícitamente eliminarla.
+
 ## 4. Alcance
 
 Aplicación **web** únicamente (Next.js). No React Native / Expo / apps nativas. Mobile
@@ -196,3 +218,13 @@ expandir el alcance de RF-003/RF-006/perfiles OCR sin autorización explícita.
 Fase activa: **Fase 0 — Planificación y arquitectura.** Ver `docs/roadmap.md` para el
 plan de fases siguientes y `docs/requirements/traceability.md` para el estado por
 requerimiento.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

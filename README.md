@@ -5,8 +5,9 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 0 — Planificación y arquitectura.** Aún no existe código de
-> aplicación ni dependencias instaladas. Ver [`docs/roadmap.md`](docs/roadmap.md).
+> Estado actual: **Fase 1 — Base técnica.** Next.js bootstrap, esquema y RLS en
+> Supabase, autenticación nativa y shell de dashboard implementados. Ver
+> [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Equipo
 
@@ -30,11 +31,43 @@ Fuera de alcance en esta versión: soporte PDF, PWA, modo offline, integración 
 
 ## Stack
 
-- **Next.js + TypeScript + React** — versiones estables se fijan y documentan aquí al
-  ejecutar el bootstrap técnico (Fase 1). Aún no instaladas.
-- **Supabase** — PostgreSQL, Supabase Auth (nativo, sin proveedores externos), Supabase
-  Storage (bucket privado).
-- **Vercel** — despliegue.
+Versiones realmente instaladas al ejecutar el bootstrap técnico (Fase 1,
+2026-08-11):
+
+| Paquete | Versión |
+|---|---|
+| Node.js | v24.17.0 |
+| npm | 11.13.0 |
+| Next.js (App Router, Turbopack) | 16.3.0 |
+| React / React DOM | 19.2.8 |
+| TypeScript (`strict`) | 5.9.3 |
+| Tailwind CSS | 4.3.3 |
+| ESLint | 9.39.5 |
+| Vitest | 4.1.10 |
+| @supabase/supabase-js | 2.112.3 |
+| @supabase/ssr | 0.12.4 |
+
+- **Supabase** — PostgreSQL 17.6 (proyecto `Tesis`, región `ca-central-1`), Supabase
+  Auth nativo (sin proveedores externos), Supabase Storage (bucket privado, se
+  configura en Fase 2).
+- **Vercel** — despliegue (se configura en Fase 8).
+
+## Desarrollo local
+
+```bash
+npm install
+cp .env.example .env.local   # completar con las claves reales del proyecto Supabase
+npm run dev                  # http://localhost:3000
+npm run lint
+npm run test                 # unit + integration (integration requiere .env.local)
+npm run build
+```
+
+El stack local de Supabase (`supabase start`) requiere Docker Desktop, no disponible en
+todos los entornos de desarrollo del equipo; por eso Fase 1 desarrolla contra el
+proyecto Supabase real de desarrollo (`supabase link`), no contra Postgres local. Las
+migraciones viven en `supabase/migrations/` y se aplican con `npx supabase db push
+--linked`.
 
 ## Documentación
 
