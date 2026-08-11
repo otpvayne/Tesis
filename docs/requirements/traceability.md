@@ -10,7 +10,7 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 
 | ID | Caso de uso | Módulo | Archivos | Prueba | Estado |
 |---|---|---|---|---|---|
-| RF-001 | Capturar documento por cámara o selección de imagen | `modules/camera` | *(Fase 3)* | *(Fase 3)* | PENDING |
+| RF-001 | Capturar documento por cámara o selección de imagen | `modules/camera` | `src/modules/camera/{errors,availability,resolution,use-camera-stream,CameraCapture}.{ts,tsx}`, `src/app/(dashboard)/documents/new/page.tsx` | lógica pura: `tests/unit/modules/camera/*.test.ts` (18/18 verde); captura/preview/stream real: **sin test automatizado posible** (jsdom no implementa `getUserMedia`/`<video>`), pendiente de verificación manual — ver checklist en el cierre de Fase 3 | IMPLEMENTED (no VERIFIED) |
 | RF-002 | Reconocer texto vía OCR propio | `modules/ocr`, `workers/ocr.worker.ts` | *(Fase 4a–4e)* | *(Fase 4a–4f)* | PENDING |
 | RF-003 | Extraer proveedor, fecha, monto_total (deseado: numero_factura) para `invoice_es` | `modules/ocr/extraction` | *(Fase 4e)* | *(Fase 4e/4f)* | PENDING |
 | RF-004 | Almacenar documento original + datos asociados en Supabase | `modules/documents` | esquema: `supabase/migrations/20260811200929_create_documents.sql`; bucket: `supabase/migrations/20260811205322_create_documents_storage_bucket.sql`; subida: `src/modules/documents/actions.ts`, `src/app/(dashboard)/documents/new/page.tsx` | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7, incluye caso ADMIN con sesión real) | VERIFIED |
@@ -23,12 +23,12 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 | ID | Descripción | Módulo | Archivos | Prueba | Estado |
 |---|---|---|---|---|---|
 | RNF-001 | Rendimiento OCR objetivo <5s, medido vía `processing_ms` | `modules/ocr` | *(Fase 4f)* | benchmark OCR sobre `test` | PENDING |
-| RNF-002 | Iniciar digitalización en ≤3 interacciones principales | `app/(dashboard)`, `modules/camera` | *(Fase 3)* | e2e | PENDING |
+| RNF-002 | Iniciar digitalización en ≤3 interacciones principales | `app/(dashboard)`, `modules/camera` | `src/app/(dashboard)/documents/new/page.tsx` (cámara se activa automáticamente al entrar; capturar → confirmar → subir) | conteo de interacciones por revisión de código, no medido en dispositivo real; e2e sigue *(Fase 7)* | IMPLEMENTED (no VERIFIED) |
 | RNF-003 | Seguridad: Auth nativo, HTTPS, RLS, storage privado, validación de MIME/tamaño | `lib/supabase`, `modules/documents` | `src/lib/supabase/{client,server,admin}.ts`, `supabase/migrations/*.sql`, `supabase/policies/*.md`, `src/modules/documents/validation.ts` (límite 10MB, MIME real por magic bytes) | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7) + `tests/unit/modules/documents/validation.test.ts` (11/11) | VERIFIED |
 | RNF-004 | Portabilidad: responsive, navegadores modernos desktop/móvil | `components/layout`, `app/(auth)`, `app/(dashboard)` | `src/app/(auth)/layout.tsx`, `src/app/(dashboard)/layout.tsx`, `src/components/layout/dashboard-nav.tsx`, `src/app/(dashboard)/documents/**` | `npm run build` (sin errores); **sin verificación visual en navegador real** — prohibido en esta sesión desde Fase 2 (`CLAUDE.md` §11), queda como verificación manual pendiente del equipo | IN_PROGRESS |
 | RNF-005 | Disponibilidad (Vercel + Supabase, sin afirmar SLA no medido) | infraestructura | — | monitoreo (Fase 8) | PENDING |
 | RNF-006 | Interoperabilidad: interfaces preparadas para integración contable, sin implementación ficticia | — | — | — | DEFERRED (asociado a RF-006) |
-| RNF-007 | Hardware: cámara, permisos, contexto seguro, Canvas/ImageData | `modules/camera` | *(Fase 3)* | manual (dispositivos reales) | PENDING |
+| RNF-007 | Hardware: cámara, permisos, contexto seguro, Canvas/ImageData | `modules/camera` | `src/modules/camera/{availability,use-camera-stream,resolution}.ts` | manual (dispositivos reales) — checklist concreto en el cierre de Fase 3 | IMPLEMENTED (no VERIFIED) |
 | RNF-008 | Escalabilidad: sin estado global innecesario, consultas paginadas, OCR no bloqueante | `modules/documents` | índices en `supabase/migrations/20260811200929_create_documents.sql`; paginación en `src/modules/documents/pagination.ts`, `src/modules/documents/queries.ts` | `tests/unit/modules/documents/pagination.test.ts` (5/5) + `tests/integration/document-filters.test.ts` (paginación implícita en `.range()`) | IN_PROGRESS (paginación de `documents` VERIFIED; "OCR no bloqueante" sigue PENDING, Fase 4e) |
 
 ## Entregables documentales de Fase 0
@@ -78,3 +78,40 @@ Deuda heredada de Fase 1 (signup/login/shell) permanece `IN_PROGRESS` por el mis
 sin verificación visual en navegador real, ahora explícitamente prohibida en esta sesión
 por regla del equipo (`CLAUDE.md` §11) en vez de solo pendiente — la resuelve el equipo
 manualmente, no una fase futura de Claude Code.
+
+## Entregables técnicos de Fase 3
+
+| Entregable | Archivo(s) | Prueba | Estado |
+|---|---|---|---|
+| Clasificador de errores de cámara (DOMException → mensaje en español) | `src/modules/camera/errors.ts` | `tests/unit/modules/camera/errors.test.ts` (7/7 verde) | VERIFIED |
+| Chequeo de disponibilidad (contexto seguro, soporte del navegador) | `src/modules/camera/availability.ts` | `tests/unit/modules/camera/availability.test.ts` (3/3 verde) | VERIFIED |
+| Validador de resolución mínima | `src/modules/camera/resolution.ts` | `tests/unit/modules/camera/resolution.test.ts` (6/6 verde) | VERIFIED |
+| Hook de ciclo de vida del `MediaStream` (permiso, preview, `track.stop()`) | `src/modules/camera/use-camera-stream.ts` | **sin test automatizado posible** (jsdom no implementa `getUserMedia`) — build/typecheck limpios, sin ejecución real | IMPLEMENTED (no VERIFIED) |
+| UI de captura (activar, preview, capturar, repetir, confirmar) | `src/modules/camera/CameraCapture.tsx` | ídem — sin `<video>`/`<canvas>` real en esta sesión | IMPLEMENTED (no VERIFIED) |
+| Integración en Nuevo documento (cámara + fallback de archivo, mismo `createDocument`) | `src/app/(dashboard)/documents/new/page.tsx` | `npm run build` sin errores; revisión de código detectó y corrigió 2 bugs reales antes de commitear (ver cierre de fase) — sin interacción real de usuario | IMPLEMENTED (no VERIFIED) |
+
+### Checklist de verificación manual pendiente (equipo, dispositivo real)
+
+Nada de esto se puede automatizar en esta sesión (`CLAUDE.md` §11 + jsdom sin
+`getUserMedia`). El equipo debe probar, como mínimo:
+
+1. **Android (Chrome) y iPhone (Safari)**, sobre HTTPS real (Vercel) o `localhost`:
+   activar cámara → se pide permiso → preview en vivo se ve correctamente orientado.
+2. **Denegar el permiso** deliberadamente → aparece el mensaje en español de
+   `PERMISSION_DENIED`, no un error crudo del navegador, y la app cae al selector de
+   archivo sin quedar en un estado roto.
+3. **Capturar una foto** → preview estático se ve, "Repetir foto" vuelve al video en
+   vivo sin re-pedir permiso, "Usar esta foto" adjunta la imagen y el formulario queda
+   listo para subir.
+4. **Dispositivo con una sola cámara** (o desktop con webcam frontal única): confirmar
+   que `facingMode: { ideal: 'environment' }` no rompe la captura (debe usar la cámara
+   disponible, no fallar).
+5. **Verificar con las herramientas del navegador** (o `chrome://webrtc-internals`)
+   que el `MediaStream` se detiene (no queda el LED de cámara encendido) al confirmar,
+   al cancelar, y al navegar fuera de `/documents/new` sin hacer ninguna de las dos.
+6. **Navegador sin `getUserMedia`** o **sin HTTPS/`localhost`**: confirmar que la app
+   no intenta mostrar cámara y usa directamente el `<input type="file" capture>` de
+   fallback.
+7. **Contar las interacciones reales** desde el Dashboard hasta tener la foto lista
+   para subir, en un celular real, para verificar RNF-002 (≤3) con datos reales en vez
+   de una cuenta hecha por revisión de código.
