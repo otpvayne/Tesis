@@ -1,7 +1,21 @@
 # Plan de pruebas
 
-**Fase:** 0 — diseño de estrategia. Herramientas concretas (test runner, e2e) se eligen
-y configuran en Fase 1 y se registran aquí con su versión.
+**Fase:** 1 — herramientas confirmadas. Diseño de estrategia original de Fase 0 abajo,
+con la elección real hecha en Fase 1.
+
+## 0. Herramientas (Fase 1)
+
+- **Test runner (unit/integration): [Vitest](https://vitest.dev) `^4.1`.** Elegido sobre
+  Jest por integración nativa con Vite/ESM/TypeScript sin configuración adicional de
+  transpilación, arranque más rápido, y compatibilidad directa con el resto del
+  toolchain de Next.js 16 (Turbopack) usado en este proyecto. Config en
+  `vitest.config.mts`; alias `@/*` espejado desde `tsconfig.json`.
+- `@testing-library/react` + `jsdom` instalados desde ya para poder probar componentes
+  de UI (formularios de auth, validación) sin esperar a necesitarlos.
+- **E2E:** herramienta por definir cuando exista una UI navegable de extremo a extremo
+  (a partir de Fase 3) — evaluar Playwright en ese momento, no se instala en Fase 1 sin
+  uso real.
+- Comandos: `npm run test` (una pasada), `npm run test:watch` (modo watch).
 
 ## 1. Categorías
 
