@@ -235,9 +235,10 @@ servidor de desarrollo o herramientas de navegador en esta sesión (sección 11)
 
 ## 13. Estado actual
 
-Fase activa: **Fase 2 — Gestión básica de documentos.** Fases 0 y 1 integradas a
-`main`. Ver `docs/roadmap.md` para el plan de fases siguientes y
-`docs/requirements/traceability.md` para el estado por requerimiento.
+Fase activa: **Fase 2 — Gestión básica de documentos** (en cierre, esperando
+aprobación). Fases 0 y 1 integradas a `main`. Ver `docs/roadmap.md` para el plan de
+fases siguientes y `docs/requirements/traceability.md` para el estado por
+requerimiento.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

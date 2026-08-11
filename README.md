@@ -5,9 +5,9 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 1 — Base técnica.** Next.js bootstrap, esquema y RLS en
-> Supabase, autenticación nativa y shell de dashboard implementados. Ver
-> [`docs/roadmap.md`](docs/roadmap.md).
+> Estado actual: **Fase 2 — Gestión básica de documentos.** Subida a Storage privado,
+> listado paginado con filtros, detalle con URL firmada y vista admin implementados
+> (todavía sin cámara ni OCR). Ver [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Equipo
 
