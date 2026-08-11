@@ -5,6 +5,7 @@ import type { DocumentStatus } from "@/modules/documents/types";
 import { normalizePagination, type PaginationParams } from "@/modules/documents/pagination";
 
 export type DocumentRow = Database["public"]["Tables"]["documents"]["Row"];
+export type DocumentWithOwnerEmail = DocumentRow & { owner: { email: string } | null };
 
 export interface DocumentFilters {
   status?: DocumentStatus;
@@ -37,6 +38,8 @@ export interface ListDocumentsParams {
   ownerId?: string;
   filters?: DocumentFilters;
   pagination?: Partial<PaginationParams>;
+  /** Vista admin: incluye el email del dueño de cada documento. */
+  includeOwnerEmail?: boolean;
 }
 
 /**
@@ -55,7 +58,7 @@ export interface ListDocumentsParams {
 export async function listDocuments(
   supabase: SupabaseClient<Database>,
   params: ListDocumentsParams = {},
-): Promise<PaginatedResult<DocumentRow>> {
+): Promise<PaginatedResult<DocumentRow | DocumentWithOwnerEmail>> {
   const { page, pageSize } = normalizePagination(params.pagination ?? {});
   const filters = params.filters ?? {};
   const needsOcrJoin =
@@ -63,7 +66,10 @@ export async function listDocuments(
     filters.minAmount !== undefined ||
     filters.maxAmount !== undefined;
 
-  const selectClause = needsOcrJoin ? "*, ocr_results!inner(extracted_data)" : "*";
+  const selectParts = ["*"];
+  if (needsOcrJoin) selectParts.push("ocr_results!inner(extracted_data)");
+  if (params.includeOwnerEmail) selectParts.push("owner:profiles(email)");
+  const selectClause = selectParts.join(", ");
 
   // `any` deliberado: seleccionar con un join dinámico a ocr_results rompe
   // la inferencia de columnas de PostgREST (el tipo generado no modela
@@ -121,7 +127,7 @@ export async function listDocuments(
   }
 
   return {
-    items: (data ?? []) as unknown as DocumentRow[],
+    items: (data ?? []) as unknown as DocumentRow[] | DocumentWithOwnerEmail[],
     page,
     pageSize,
     totalCount: count ?? 0,
