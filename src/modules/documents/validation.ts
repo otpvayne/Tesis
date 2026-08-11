@@ -3,6 +3,11 @@
  * factura tomada con cámara de celular moderna sin permitir archivos
  * desproporcionados. Espeja el `file_size_limit` del bucket de Storage
  * (segunda barrera, ver supabase/migrations/*_create_documents_storage_bucket.sql).
+ *
+ * Si este valor cambia, revisar también `experimental.serverActions.bodySizeLimit`
+ * en next.config.ts — ese límite debe quedar por encima de este (el body de
+ * la request incluye overhead de multipart/form-data), si no, la subida
+ * revienta con 413 antes de llegar a esta validación.
  */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
