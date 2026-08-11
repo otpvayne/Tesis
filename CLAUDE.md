@@ -27,9 +27,12 @@ siempre, sin excepción por presión de tiempo (no existe tal presión).
 
 Usar exclusivamente estos nombres para este proyecto:
 
-- **Diego Alejandro Medina Martinez** — Tech Lead / NETRIX Corporation
-- **Andres Felipe Moreno Beltrán** — Desarrollador, Mansor
-- **Santiago Moralez Orozco** — Desarrollador, Mansor
+- **Diego Alejandro Medina Martinez** — Ingeniero, UMB
+- **Andres Felipe Moreno Beltrán** — Ingeniero, UMB
+- **Santiago Moralez Orozco** — Ingeniero, UMB
+
+(Roles actualizados en Fase 2 para reflejar `README.md`, tras el commit `4864ed0`
+publicado directamente en GitHub sobre `fase/0-planificacion`.)
 
 Somos tres personas trabajando sobre el mismo repositorio. Antes de modificar cualquier
 archivo: `git status`, `git branch`, `git remote -v`. Si hay cambios locales no
