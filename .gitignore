@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+*.pem
+*.key
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Testing / coverage
+coverage/
+.nyc_output/
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Datos reales / confidenciales — NUNCA subir facturas o datasets reales de Mansor
+data/real/
+data/private/
+datasets/real/
+**/facturas-reales/
+**/*.confidential.*
