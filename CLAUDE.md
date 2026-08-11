@@ -27,9 +27,12 @@ siempre, sin excepción por presión de tiempo (no existe tal presión).
 
 Usar exclusivamente estos nombres para este proyecto:
 
-- **Diego Alejandro Medina Martinez** — Tech Lead / NETRIX Corporation
-- **Andres Felipe Moreno Beltrán** — Desarrollador, Mansor
-- **Santiago Moralez Orozco** — Desarrollador, Mansor
+- **Diego Alejandro Medina Martinez** — Ingeniero, UMB
+- **Andres Felipe Moreno Beltrán** — Ingeniero, UMB
+- **Santiago Moralez Orozco** — Ingeniero, UMB
+
+(Roles actualizados en Fase 2 para reflejar `README.md`, tras el commit `4864ed0`
+publicado directamente en GitHub sobre `fase/0-planificacion`.)
 
 Somos tres personas trabajando sobre el mismo repositorio. Antes de modificar cualquier
 archivo: `git status`, `git branch`, `git remote -v`. Si hay cambios locales no
@@ -203,7 +206,23 @@ binarización, morfología, componentes conectados, segmentación, HOG, distanci
 confidence, extracción de campos. Las pruebas OCR "reales" usan siempre la partición
 `test`. Detalle: `docs/testing/test-plan.md`.
 
-## 11. Prohibido siempre
+## 11. Límites de ejecución de esta sesión (Claude Code)
+
+Reglas permanentes, pedidas explícitamente por el equipo, válidas para todas las fases
+siguientes sin necesidad de repetirlas en cada prompt:
+
+- **Nunca ejecutar un servidor de desarrollo** (`next dev`, `npm run dev`, `vercel dev`,
+  ni ningún proceso que quede escuchando en un puerto). El equipo lo corre desde su
+  propia terminal cuando quiere probarlo manualmente. La verificación en esta sesión se
+  limita a: `npm run build`, `npx tsc --noEmit`, `npx eslint .`, `npm run test`
+  (unit + integration). Si algo solo puede confirmarse corriendo el servidor o viendo la
+  UI en vivo, se reporta como **pendiente de verificación manual por el equipo** — nunca
+  se resuelve arrancando el servidor.
+- **Nunca usar herramientas de navegador/automatización visual** (Claude in Chrome o
+  equivalentes) para verificar la aplicación. La verificación de UI/flujos de usuario
+  queda a cargo del equipo, manualmente, fuera de esta sesión.
+
+## 12. Prohibido siempre
 
 Force push sin autorización explícita, eliminar ramas de otros, reescribir commits
 ajenos, `git reset --hard` sobre trabajo no confirmado, `git clean -fd` sin
@@ -211,13 +230,14 @@ autorización, borrar archivos no reconocidos, subir secretos/datos privados/fac
 reales de Mansor, merge a `main` sin aprobación, commits vacíos, modificar autoría de
 commits existentes, PDF en v1, PWA/offline en v1, integración contable real o simulada
 como real, cualquier dependencia OCR/CV/ML de terceros listada en la sección 7,
-expandir el alcance de RF-003/RF-006/perfiles OCR sin autorización explícita.
+expandir el alcance de RF-003/RF-006/perfiles OCR sin autorización explícita, ejecutar
+servidor de desarrollo o herramientas de navegador en esta sesión (sección 11).
 
-## 12. Estado actual
+## 13. Estado actual
 
-Fase activa: **Fase 0 — Planificación y arquitectura.** Ver `docs/roadmap.md` para el
-plan de fases siguientes y `docs/requirements/traceability.md` para el estado por
-requerimiento.
+Fase activa: **Fase 2 — Gestión básica de documentos.** Fases 0 y 1 integradas a
+`main`. Ver `docs/roadmap.md` para el plan de fases siguientes y
+`docs/requirements/traceability.md` para el estado por requerimiento.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
