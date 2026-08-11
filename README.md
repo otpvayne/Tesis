@@ -5,9 +5,10 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 2 — Gestión básica de documentos.** Subida a Storage privado,
-> listado paginado con filtros, detalle con URL firmada y vista admin implementados
-> (todavía sin cámara ni OCR). Ver [`docs/roadmap.md`](docs/roadmap.md).
+> Estado actual: **Fase 3 — Captura mobile first (cámara).** Captura por cámara con
+> fallback de archivo integrada al flujo de subida existente (todavía sin OCR). La
+> captura real en dispositivo **no se ha verificado en navegador real** — pendiente de
+> prueba manual del equipo. Ver [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Equipo
 
