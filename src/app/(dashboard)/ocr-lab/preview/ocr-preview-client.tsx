@@ -6,6 +6,7 @@ import { toGrayscale } from "@/modules/ocr/preprocessing/grayscale";
 import { normalizeRange } from "@/modules/ocr/preprocessing/normalize";
 import { computeHistogram } from "@/modules/ocr/preprocessing/histogram";
 import { computeOtsuThreshold, otsuBinarization } from "@/modules/ocr/preprocessing/otsu-binarization";
+import { gaussianBlur } from "@/modules/ocr/preprocessing/gaussian-blur";
 import { denoise } from "@/modules/ocr/preprocessing/denoise";
 import { ensureTextIsForeground } from "@/modules/ocr/segmentation/normalize-polarity";
 import { findConnectedComponents, type Component } from "@/modules/ocr/segmentation/connected-components";
@@ -20,7 +21,7 @@ const HISTOGRAM_CANVAS_HEIGHT = 120;
 const COMPONENT_COLORS = ["#ef4444", "#3b82f6", "#22c55e", "#f97316", "#a855f7", "#06b6d4", "#eab308"];
 
 /** Paso más avanzado del pipeline aplicado sobre la imagen actual — gate visual, no persiste nada. */
-type PipelineStep = "none" | "grayscale" | "normalized" | "otsu" | "denoised" | "segmented";
+type PipelineStep = "none" | "grayscale" | "normalized" | "blurred" | "otsu" | "denoised" | "segmented";
 
 interface SegmentationResult {
   components: Component[];
@@ -202,6 +203,7 @@ export function OcrPreviewClient() {
   const [step, setStep] = useState<PipelineStep>("none");
   const [otsuThreshold, setOtsuThreshold] = useState<number | null>(null);
   const [thresholdMultiplier, setThresholdMultiplier] = useState(1);
+  const [blurSigma, setBlurSigma] = useState(1);
   const [kernelSize, setKernelSize] = useState(3);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -276,6 +278,10 @@ export function OcrPreviewClient() {
 
   function handleNormalize() {
     applyStep("Normalizar", "normalized", normalizeRange);
+  }
+
+  function handleBlur() {
+    applyStep(`Blur (σ=${blurSigma})`, "blurred", (img) => gaussianBlur(img, blurSigma));
   }
 
   function handleOtsu() {
@@ -360,6 +366,23 @@ export function OcrPreviewClient() {
             </button>
             <button type="button" onClick={handleNormalize} className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200">
               Normalizar
+            </button>
+            <label
+              className="flex items-center gap-1 text-sm text-neutral-600 dark:text-neutral-400"
+              title="Desviación estándar del kernel Gaussiano 3×3, aplicado antes de Otsu (sobre valores continuos, no binarios) para suavizar ruido de sensor/JPEG sin la erosión de trazos delgados que causaba denoise post-Otsu."
+            >
+              σ
+              <input
+                type="number"
+                min={0.1}
+                step={0.1}
+                value={blurSigma}
+                onChange={(e) => setBlurSigma(Math.max(0.1, Number(e.target.value) || 1))}
+                className="w-14 rounded-md border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-950"
+              />
+            </label>
+            <button type="button" onClick={handleBlur} className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200">
+              Blur
             </button>
             <button type="button" onClick={handleOtsu} className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200">
               Otsu

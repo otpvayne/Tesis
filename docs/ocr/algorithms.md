@@ -152,6 +152,34 @@ la fórmula de Otsu** — subirlo mueve más píxeles de fondo hacia la clase os
 correcta depende de dónde cae el histograma real, se determina empíricamente por
 imagen, no se asume). Verificado en `otsu-binarization.test.ts` con un ejemplo a mano.
 
+## 4b. Suavizado Gaussiano pre-Otsu — `gaussian-blur.ts` (Fase 4b, implementado)
+
+Aplicado sobre la imagen en escala de grises, **antes** de `otsuBinarization` — a
+diferencia del filtro de mediana de la sección 5, que opera después, sobre la salida ya
+binaria. Kernel fijo 3×3 (no crece con `sigma`, por la misma razón que el filtro de
+mediana se mantiene pequeño: un kernel más grande difuminaría de más un carácter
+pequeño):
+
+```
+peso(dx, dy) = e^(-(dx² + dy²) / (2·sigma²)),  dx, dy ∈ {-1, 0, 1}
+kernel(dx, dy) = peso(dx, dy) / Σ peso
+
+salida(x, y) = Σ_{dx,dy} entrada(x+dx, y+dy) · kernel(dx, dy)
+```
+
+Bordes: replicación (igual que `denoise.ts`). Ejemplo verificado en
+`gaussian-blur.test.ts`: con `sigma=1`, peso central `1/4.8976 ≈ 0.2042`, ortogonal
+`e^-0.5/4.8976 ≈ 0.1238`, esquina `e^-1/4.8976 ≈ 0.0751`.
+
+**Por qué Gaussiano aquí y mediana en la sección 5, no el mismo filtro en ambos
+lugares:** operar sobre valores continuos (0-255) es precisamente el caso donde un
+filtro Gaussiano no rompe nada (no hay binariedad que preservar todavía). Promedia
+ruido de alta frecuencia (grano de sensor, artefactos JPEG) sin la votación "todo o
+nada" de la mediana: un trazo delgado se atenúa en los bordes pero su centro sigue
+siendo lo bastante oscuro para cruzar el threshold de Otsu, en vez de desaparecer por
+completo — el problema real que llevó a desactivar `denoise` (`OCR_CONFIG.APPLY_DENOISE`,
+ver sección 5).
+
 ## 5. Reducción de ruido — filtro de mediana — `denoise.ts` (Fase 4a, implementado)
 
 Para cada píxel, se reemplaza su valor por la **mediana** (no el promedio) de sus
