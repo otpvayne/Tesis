@@ -14,6 +14,7 @@ import { extractCharactersFromWord } from "@/modules/ocr/segmentation/extract-ch
 import { normalizeCharacter } from "@/modules/ocr/segmentation/normalize-character";
 import { extractHOG } from "@/modules/ocr/classification/hog-extractor";
 import {
+  activateModel,
   getDatasetStats,
   saveLabeledSamples,
   trainAndEvaluateModel,
@@ -59,8 +60,10 @@ export function OcrTrainClient({ initialStats }: { initialStats: DatasetStats })
   const [stats, setStats] = useState<DatasetStats>(initialStats);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [trainResult, setTrainResult] = useState<TrainAndEvaluateResult | null>(null);
+  const [activateMessage, setActivateMessage] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
   const [isTraining, startTraining] = useTransition();
+  const [isActivating, startActivating] = useTransition();
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -125,6 +128,7 @@ export function OcrTrainClient({ initialStats }: { initialStats: DatasetStats })
   function handleTrain() {
     setError(null);
     setTrainResult(null);
+    setActivateMessage(null);
     startTraining(async () => {
       try {
         const result = await trainAndEvaluateModel();
@@ -132,6 +136,19 @@ export function OcrTrainClient({ initialStats }: { initialStats: DatasetStats })
         setStats(await getDatasetStats());
       } catch (err) {
         setError(err instanceof Error ? err.message : "No se pudo entrenar el modelo.");
+      }
+    });
+  }
+
+  function handleActivate() {
+    if (!trainResult) return;
+    setError(null);
+    startActivating(async () => {
+      try {
+        await activateModel(trainResult.modelId);
+        setActivateMessage("Modelo activado — /documents/[id] ya puede usarlo para procesar facturas.");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "No se pudo activar el modelo.");
       }
     });
   }
@@ -228,14 +245,25 @@ export function OcrTrainClient({ initialStats }: { initialStats: DatasetStats })
           </button>
         </div>
         {trainResult ? (
-          <p className="text-sm text-neutral-700 dark:text-neutral-300">
-            Entrenado con {trainResult.trainCount} muestras ({trainResult.classes} labels distintas). Accuracy en{" "}
-            {trainResult.testCount} muestras de test:{" "}
-            {trainResult.accuracy === null
-              ? "sin muestras de test todavía, no medible"
-              : `${(trainResult.accuracy * 100).toFixed(1)}%`}
-            . Modelo guardado (`ocr_models`, inactivo — activarlo es una decisión aparte).
-          </p>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-neutral-700 dark:text-neutral-300">
+              Entrenado con {trainResult.trainCount} muestras ({trainResult.classes} labels distintas). Accuracy en{" "}
+              {trainResult.testCount} muestras de test:{" "}
+              {trainResult.accuracy === null
+                ? "sin muestras de test todavía, no medible"
+                : `${(trainResult.accuracy * 100).toFixed(1)}%`}
+              . Modelo guardado (`ocr_models`, inactivo por defecto).
+            </p>
+            <button
+              type="button"
+              onClick={handleActivate}
+              disabled={isActivating}
+              className="self-start rounded-md border border-emerald-500 px-3 py-2 text-sm font-medium text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-400 dark:text-emerald-300"
+            >
+              {isActivating ? "Activando..." : "Activar este modelo"}
+            </button>
+            {activateMessage ? <p className="text-sm text-green-700 dark:text-green-400">{activateMessage}</p> : null}
+          </div>
         ) : null}
       </div>
 

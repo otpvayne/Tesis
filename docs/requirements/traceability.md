@@ -11,8 +11,8 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 | ID | Caso de uso | Módulo | Archivos | Prueba | Estado |
 |---|---|---|---|---|---|
 | RF-001 | Capturar documento por cámara o selección de imagen | `modules/camera` | `src/modules/camera/{errors,availability,resolution,use-camera-stream,CameraCapture}.{ts,tsx}`, `src/app/(dashboard)/documents/new/page.tsx` | lógica pura: `tests/unit/modules/camera/*.test.ts` (18/18 verde); captura/preview/stream real: **sin test automatizado posible** (jsdom no implementa `getUserMedia`/`<video>`), pendiente de verificación manual — ver checklist en el cierre de Fase 3 | IMPLEMENTED (no VERIFIED) |
-| RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b): `src/modules/ocr/segmentation/*.ts`, `src/modules/ocr/config.ts`; clasificación + entrenamiento sintético (4c/4d): `src/modules/ocr/classification/*.ts`; pipeline en worker (4e): *(pendiente)* | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (53/53); segmentación: `tests/unit/modules/ocr/segmentation/*.test.ts` (40/40); clasificación/entrenamiento: `tests/unit/modules/ocr/classification/*.test.ts` (44/44) | IN_PROGRESS — preprocesamiento (4a), segmentación (4b), clasificación (4c) e infraestructura de entrenamiento (4d) **VERIFIED** (algoritmos correctos; sin dataset/modelo real medido — ver nota de sesión en Fase 4d abajo); pipeline/evaluación siguen PENDING |
-| RF-003 | Extraer proveedor, fecha, monto_total (deseado: numero_factura) para `invoice_es` | `modules/ocr/extraction` | *(Fase 4e)* | *(Fase 4e/4f)* | PENDING |
+| RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b): `src/modules/ocr/segmentation/*.ts`, `src/modules/ocr/config.ts`; clasificación + entrenamiento sintético (4c/4d): `src/modules/ocr/classification/*.ts`; pipeline completo (4e): `src/modules/ocr/pipeline/ocr-pipeline.ts` | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (53/53); segmentación: `tests/unit/modules/ocr/segmentation/*.test.ts` (40/40); clasificación/entrenamiento/extracción: `tests/unit/modules/ocr/classification/*.test.ts` (53/53); pipeline: `tests/unit/modules/ocr/pipeline/*.test.ts` (5/5) | IN_PROGRESS — preprocesamiento (4a), segmentación (4b), clasificación (4c), infraestructura de entrenamiento (4d) y pipeline completo (4e) **VERIFIED** (algoritmos correctos, medido con `ImageData` sintética real — no requiere canvas de navegador salvo `decodeImage`); evaluación real sobre `test` sigue PENDING (Fase 4f) |
+| RF-003 | Extracción de campos obligatorios: Proveedor, NIT, Fecha, IVA, Valor, Total (actualizado Fase 4e con datos reales de Mansor; especificado según facturación colombiana — reemplaza la definición de Fase 0 `proveedor/fecha/monto_total` + `numero_factura` deseado) para `invoice_es` | `src/modules/ocr/classification/field-extraction.ts` | `tests/unit/modules/ocr/classification/field-extraction.test.ts` (9/9, incluye el ejemplo exacto del prompt de esta fase y el caso `Total`/`Subtotal`) | VERIFIED (heurística correcta sobre texto sintético; sin facturas reales de Mansor probadas todavía) |
 | RF-004 | Almacenar documento original + datos asociados en Supabase | `modules/documents` | esquema: `supabase/migrations/20260811200929_create_documents.sql`; bucket: `supabase/migrations/20260811205322_create_documents_storage_bucket.sql`; subida: `src/modules/documents/actions.ts`, `src/app/(dashboard)/documents/new/page.tsx` | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7, incluye caso ADMIN con sesión real) | VERIFIED |
 | RF-005 | Consultar documentos con filtros (proveedor, fecha, monto, estado) | `modules/documents` | `src/modules/documents/queries.ts`, `src/app/(dashboard)/documents/page.tsx` | `tests/integration/document-filters.test.ts` (7/7 verde) | status/fecha **VERIFIED** con datos reales; proveedor/monto **IMPLEMENTED** (query correcta contra muestra sintética de `ocr_results`, sin datos reales que filtrar hasta RF-002/RF-003 en Fase 4/5 — no es un bug, es orden de fases) |
 | RF-006 | Integración contable (SIIGO u otra) | — | — | — | **DEFERRED** |
@@ -22,7 +22,7 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 
 | ID | Descripción | Módulo | Archivos | Prueba | Estado |
 |---|---|---|---|---|---|
-| RNF-001 | Rendimiento OCR objetivo <5s, medido vía `processing_ms` | `modules/ocr` | *(Fase 4f, pipeline completo)* | Complejidad de `KNNClassifier.predict`: `O(N·D)` por carácter (`N`=muestras de entrenamiento, `D`=108 dims del descriptor HOG) — sin índice espacial (kd-tree, etc.), escaneo lineal. **Medido** (no estimado): con dataset sintético a escala de Fase 4d (62 clases × 130 muestras = 8060, datos aleatorios), `predict()` toma **~16.4ms** en esta máquina — no `<1ms` como se especuló al pedir esta fase. A ~700 caracteres por factura (rango reportado en Fase 4b), 700×16ms ≈ 11.2s **en serie** — superaría el objetivo de <5s si el pipeline real (Fase 4e) llama `predict()` secuencialmente sin paralelizar (Web Worker) ni optimizar la búsqueda de vecinos. Riesgo real a resolver en Fase 4e, no en esta fase (solo infraestructura) — dejar documentado ahora en vez de descubrirlo tarde. | PENDING (medición real solo posible con pipeline completo sobre `test`; el dato de arriba es benchmark de infraestructura, no del RNF) |
+| RNF-001 | Rendimiento OCR objetivo <5s, medido vía `processing_ms` | `modules/ocr/pipeline/ocr-pipeline.ts`, `modules/ocr/classification/field-extraction.ts` | Benchmark real de Fase 4e (ver `docs/ocr/extraction.md` §6): factura sintética de ~25 líneas/~1184 caracteres, `KNNClassifier` a escala Fase 4d (9920 muestras). Medido con `performance.now()`, no estimado: preprocess 43.7ms + segmentación 88.5ms + reconocimiento 4715.7ms + extracción 1.0ms = **4849.2ms total**. | IN_PROGRESS — dentro del objetivo <5s pero con margen mínimo (~150ms), medido en máquina de desarrollo, no en el dispositivo móvil real de RNF-004; riesgo real para Fase 4f si el dataset de entrenamiento crece (más muestras reales etiquetadas por Andrés/Santiago en paralelo) sin optimizar `KNNClassifier.predict` (`O(N·D)`, escaneo lineal, ya señalado como riesgo en Fase 4c/4d). Medición final con `test` real sigue PENDING de Fase 4f. |
 | RNF-002 | Iniciar digitalización en ≤3 interacciones principales | `app/(dashboard)`, `modules/camera` | `src/app/(dashboard)/documents/new/page.tsx` (cámara se activa automáticamente al entrar; capturar → confirmar → subir) | conteo de interacciones por revisión de código, no medido en dispositivo real; e2e sigue *(Fase 7)* | IMPLEMENTED (no VERIFIED) |
 | RNF-003 | Seguridad: Auth nativo, HTTPS, RLS, storage privado, validación de MIME/tamaño | `lib/supabase`, `modules/documents` | `src/lib/supabase/{client,server,admin}.ts`, `supabase/migrations/*.sql`, `supabase/policies/*.md`, `src/modules/documents/validation.ts` (límite 10MB, MIME real por magic bytes) | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7) + `tests/unit/modules/documents/validation.test.ts` (11/11) | VERIFIED |
 | RNF-004 | Portabilidad: responsive, navegadores modernos desktop/móvil | `components/layout`, `app/(auth)`, `app/(dashboard)` | `src/app/(auth)/layout.tsx`, `src/app/(dashboard)/layout.tsx`, `src/components/layout/dashboard-nav.tsx`, `src/app/(dashboard)/documents/**` | `npm run build` (sin errores); **sin verificación visual en navegador real** — prohibido en esta sesión desde Fase 2 (`CLAUDE.md` §11), queda como verificación manual pendiente del equipo | IN_PROGRESS |
@@ -300,3 +300,61 @@ requeriría una migración + políticas RLS nuevas — cambio de infraestructura
 que corresponde decidir unilateralmente en esta fase. Se reutiliza `ocr_models.model_data`
 (jsonb), ya existente y ya usado para esto en Fase 4c (`trainAndEvaluateModel`). Ver
 razón completa en `model-persistence.ts`.
+
+## Entregables técnicos de Fase 4e
+
+| Entregable | Archivo(s) | Prueba | Estado |
+|---|---|---|---|
+| `runOCRPipeline`/`runOCRPipelineOnImageData` (pipeline 4a→4d encadenado, reconstrucción de texto con orden de lectura explícito, timing real por etapa) | `src/modules/ocr/pipeline/ocr-pipeline.ts` | `tests/unit/modules/ocr/pipeline/ocr-pipeline.test.ts` (5/5, incluye timing real medido) | VERIFIED |
+| `extractFields` (6 campos: proveedor/nit/fecha/iva/valor/total, regex+keywords, 3 niveles de confidence) | `src/modules/ocr/classification/field-extraction.ts` | `tests/unit/modules/ocr/classification/field-extraction.test.ts` (9/9) | VERIFIED |
+| `GET /api/ocr/active-model` (puente RLS: sirve el modelo activo a cualquier usuario autenticado, no solo ADMIN) | `src/app/api/ocr/active-model/route.ts` | `npm run build` sin errores; **sin verificación end-to-end real** — requiere navegador (el equipo la corre) | IMPLEMENTED (no VERIFIED) |
+| `saveOcrResult`/`markOcrStarted`/`markOcrFailed` (Server Actions, persisten en `ocr_results`, actualizan `documents.status`, auditan `OCR_STARTED`/`OCR_COMPLETED`/`OCR_FAILED`) | `src/modules/documents/document-processing.ts` | `npm run build` sin errores; **sin verificación contra Supabase real** | IMPLEMENTED (no VERIFIED) |
+| `activateModel` (hueco encontrado al cablear esta fase: ni Fase 4c ni 4d activan el modelo que entrenan — sin esto, `/api/ocr/active-model` siempre daría 404) + botón "Activar" en `/ocr-lab/train` (ambas secciones) | `src/modules/ocr/classification/training-actions.ts`, `src/app/(dashboard)/ocr-lab/train/{ocr-train-client,synthetic-training-panel}.tsx` | `npm run build` sin errores; **sin verificación contra Supabase real** | IMPLEMENTED (no VERIFIED) |
+| UI: botón "Procesar documento" + tabla de campos extraídos + texto OCR crudo colapsable en `/documents/[id]` | `src/app/(dashboard)/documents/[id]/{page,process-document-client}.tsx` | `npm run build` sin errores; **sin verificación visual** — prohibido en esta sesión (`CLAUDE.md` §11) | IMPLEMENTED (no VERIFIED) |
+| Corrección consecuente: `queries.ts` (RF-005, Fase 2) usaba `monto_total`, ahora `total` | `src/modules/documents/queries.ts` | `tests/integration/document-filters.test.ts` (7/7, **corrido contra Supabase real en esta sesión**) | VERIFIED |
+| `docs/ocr/extraction.md` (heurística, confidence, benchmark real, limitaciones) | `docs/ocr/extraction.md` | ejemplos tomados directo de los tests arriba | VERIFIED |
+
+### Decisiones técnicas / desviaciones de esta fase
+
+1. **Arquitectura cliente/servidor no anticipada por el prompt**: `decodeImage` (Fase
+   4a) requiere `createImageBitmap`/`<canvas>`, inexistentes en el runtime de una
+   Server Action (Node.js) — el pipeline OCR completo **tiene que correr en el
+   navegador**, no server-side como sugería el pseudocódigo original de
+   `document-processing.ts`. Se separó en: pipeline+extracción (cliente, puro) →
+   Server Actions que solo persisten el resultado ya calculado (mismo patrón que
+   `saveLabeledSamples`/`saveSyntheticModel` de Fase 4c/4d).
+2. **Puente de RLS para el modelo activo**: `ocr_models` es RLS solo-ADMIN, pero un
+   usuario regular necesita el modelo para procesar su propio documento. Se creó
+   `GET /api/ocr/active-model`, que exige sesión autenticada y usa el cliente
+   `service_role` para esa lectura puntual — no se tocó la RLS de `ocr_models` en sí.
+3. **Bug real corregido en el diseño de confidence de extracción**: la ventana de
+   contexto simétrica (±50 caracteres) propuesta en el prompt colapsa cuando varios
+   campos monetarios están cerca en el texto (exactamente el caso de una factura) —
+   ver detalle y fix (proximidad dirigida keyword→valor) en `docs/ocr/extraction.md` §3.
+4. **Bug real corregido en el ejemplo de keywords**: buscar `Total` por substring
+   encuentra también la `total` dentro de `Subtotal` — se corrigió con límite de
+   palabra (`\bTotal\b`), verificado con un test dedicado.
+5. **`monto_total` → `total`**: cambio consecuente de RF-003, propagado a
+   `queries.ts` (RF-005) y verificado contra Supabase real, no solo en código nuevo.
+6. **Heurística Total/Valor/IVA por relación numérica**: no implementada — ver
+   `docs/ocr/extraction.md` §4.
+
+### Benchmark real (no estimado) — ver detalle en `docs/ocr/extraction.md` §6
+
+Factura sintética ~25 líneas / ~1184 caracteres, kNN a escala de Fase 4d (9920
+muestras): preprocess 43.7ms + segmentación 88.5ms + reconocimiento 4715.7ms +
+extracción 1.0ms = **4849.2ms total**. Dentro de <5s pero con margen mínimo — ver
+RNF-001 arriba para el análisis de riesgo.
+
+### Qué debe revisar el equipo (pedido explícito de esta fase)
+
+Con 2-3 facturas reales de Mansor, procesarlas en `/documents/[id]` y reportar:
+
+- Qué % de cada campo (proveedor/NIT/fecha/IVA/valor/total) se extrajo correctamente.
+- Si el `processing_ms` real en un dispositivo móvil se mantiene bajo 5s (el benchmark
+  de esta sesión es de una máquina de desarrollo, no representativo de RNF-004).
+- Si el modelo activo (`ocr_models`) existe — sin uno, `/api/ocr/active-model`
+  devuelve 404 y el botón "Procesar documento" falla con ese mensaje; hace falta que
+  alguien entrene y **active** un modelo (Fase 4c/4d ya construyeron el entrenamiento,
+  pero ningún modelo se activa automáticamente — es una decisión explícita, todavía
+  pendiente).

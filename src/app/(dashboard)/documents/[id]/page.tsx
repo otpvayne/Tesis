@@ -8,6 +8,7 @@ import { DOCUMENTS_STORAGE_BUCKET } from "@/modules/documents/types";
 import { formatDateTime } from "@/lib/utils/format-date";
 import { getDocumentStatusLabel, getDocumentTypeLabel } from "@/lib/constants/document-display";
 import { safeInternalPath } from "@/lib/utils/safe-internal-path";
+import { ProcessDocumentClient } from "./process-document-client";
 
 interface DocumentDetailPageProps {
   params: Promise<{ id: string }>;
@@ -15,6 +16,30 @@ interface DocumentDetailPageProps {
 }
 
 const SIGNED_URL_TTL_SECONDS = 60 * 5;
+
+interface StoredExtractedField {
+  value: string | number | null;
+  confidence: number;
+  sourceRegion: { x: number; y: number; w: number; h: number } | null;
+}
+
+interface StoredExtractedData {
+  proveedor?: StoredExtractedField;
+  nit?: StoredExtractedField;
+  fecha?: StoredExtractedField;
+  iva?: StoredExtractedField;
+  valor?: StoredExtractedField;
+  total?: StoredExtractedField;
+}
+
+const FIELD_LABELS: Record<keyof StoredExtractedData, string> = {
+  proveedor: "Proveedor",
+  nit: "NIT",
+  fecha: "Fecha",
+  iva: "IVA",
+  valor: "Valor",
+  total: "Total",
+};
 
 export default async function DocumentDetailPage({
   params,
@@ -41,6 +66,19 @@ export default async function DocumentDetailPage({
   const { data: signed, error: signedError } = await supabase.storage
     .from(DOCUMENTS_STORAGE_BUCKET)
     .createSignedUrl(doc.original_file_path, SIGNED_URL_TTL_SECONDS);
+
+  // Último resultado OCR (Fase 4e) -- puede haber varios por reintentos;
+  // solo se muestra el más reciente. ocr_results es histórico inmutable
+  // (sin UPDATE/DELETE), así que "el más reciente" es siempre el actual.
+  const { data: ocrResult } = await supabase
+    .from("ocr_results")
+    .select("id, raw_text, extracted_data, confidence, processing_ms, created_at")
+    .eq("document_id", doc.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const extractedData = (ocrResult?.extracted_data ?? null) as StoredExtractedData | null;
 
   await logAuditEvent(supabase, {
     actorId: user.id,
@@ -88,6 +126,55 @@ export default async function DocumentDetailPage({
           {formatDateTime(doc.created_at)}
         </dd>
       </dl>
+
+      {signed ? (
+        <ProcessDocumentClient documentId={doc.id} signedUrl={signed.signedUrl} documentType={doc.document_type} />
+      ) : null}
+
+      {ocrResult && extractedData ? (
+        <div className="flex flex-col gap-3 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Campos extraídos (RF-003)</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-500">
+              confidence global: {((ocrResult.confidence ?? 0) * 100).toFixed(0)}% — {ocrResult.processing_ms ?? "?"}ms
+              {ocrResult.processing_ms && ocrResult.processing_ms > 5000 ? (
+                <span className="text-amber-700 dark:text-amber-400"> ⚠ &gt;5s (RNF-001)</span>
+              ) : null}
+            </p>
+          </div>
+
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="text-xs text-neutral-500 dark:text-neutral-500">
+                <th className="pb-1">Campo</th>
+                <th className="pb-1">Valor</th>
+                <th className="pb-1">Confianza</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(Object.keys(FIELD_LABELS) as Array<keyof StoredExtractedData>).map((key) => {
+                const field = extractedData[key];
+                return (
+                  <tr key={key} className="border-t border-neutral-100 dark:border-neutral-900">
+                    <td className="py-1 text-neutral-500 dark:text-neutral-400">{FIELD_LABELS[key]}</td>
+                    <td className="py-1 text-neutral-900 dark:text-neutral-50">
+                      {field?.value !== null && field?.value !== undefined ? String(field.value) : "—"}
+                    </td>
+                    <td className="py-1 text-neutral-500 dark:text-neutral-400">
+                      {field ? `${(field.confidence * 100).toFixed(0)}%` : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <details className="text-xs text-neutral-500 dark:text-neutral-500">
+            <summary className="cursor-pointer">Texto OCR crudo (debug)</summary>
+            <pre className="mt-2 whitespace-pre-wrap rounded bg-neutral-50 p-2 dark:bg-neutral-900">{ocrResult.raw_text}</pre>
+          </details>
+        </div>
+      ) : null}
 
       <form action={deleteDocument.bind(null, doc.id)}>
         <button

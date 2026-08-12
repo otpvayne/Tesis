@@ -5,17 +5,18 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 4d — Entrenamiento OCR (en cierre).** Pipeline propio completo
-> hasta clasificación: preprocesamiento (4a) + segmentación (4b) + HOG y kNN (4c) +
-> generación de dataset sintético y entrenamiento (4d), 220 unit tests. `/ocr-lab/train`
-> (solo ADMIN) ahora también genera caracteres sintéticos (fuentes + distorsiones),
-> entrena un kNN, muestra accuracy/matriz de confusión, y guarda el modelo — pero
-> **ninguna cifra concreta fue generada por esta sesión**: renderizar fuentes requiere
-> un navegador real, así que el dataset/modelo/accuracy reales los produce el equipo
-> corriendo la herramienta. Extracción de campos y pipeline end-to-end siguen pendientes
-> (Fase 4e en adelante). Ver [`docs/roadmap.md`](docs/roadmap.md) — nota: la UI de
-> etiquetado se adelantó de Fase 4d a 4c por pedido explícito del equipo; sigue pendiente
-> de reconciliar formalmente el roadmap fijo (ver `CLAUDE.md` §13).
+> Estado actual: **Fase 4e — Pipeline OCR completo + extracción de campos (en cierre).**
+> Pipeline propio de extremo a extremo: preprocesamiento (4a) + segmentación (4b) + HOG
+> y kNN (4c) + entrenamiento sintético (4d) + reconstrucción de texto y extracción de
+> campos (4e), 234 tests. RF-003 actualizado con datos reales de Mansor: extrae
+> **Proveedor, NIT, Fecha, IVA, Valor, Total** (antes `proveedor/fecha/monto_total`).
+> `/documents/[id]` tiene un botón "Procesar documento" que corre el pipeline completo
+> en el navegador (requiere Canvas real — no ejecutable en esta sesión) y muestra los
+> campos extraídos con su confianza. Benchmark real medido: ~4.85s para una factura
+> sintética de ~1184 caracteres — dentro del objetivo <5s de RNF-001 pero con margen
+> mínimo, ver `docs/ocr/extraction.md`. Ningún modelo está activado todavía — el equipo
+> debe correr `/ocr-lab/train` y activar uno antes de que esto funcione end-to-end. Ver
+> [`docs/roadmap.md`](docs/roadmap.md) y `CLAUDE.md` §13 para desviaciones pendientes.
 
 ## Equipo
 
@@ -30,9 +31,10 @@ Mansor, en conjunto con NETRIX Corporation.
 Aplicación web (no nativa), mobile first, con captura por cámara del navegador o
 selección manual de imagen (JPG/JPEG/PNG). El sistema segmenta y reconoce texto con un
 pipeline OCR propio (sin librerías de OCR/CV/ML de terceros — ver `CLAUDE.md` sección
-7), extrae proveedor / fecha / monto total (y de forma deseada el número de factura)
-para facturas en español, permite validación humana de lo detectado y almacena todo en
-Supabase con aislamiento estricto por usuario vía Row Level Security.
+7), extrae Proveedor / NIT / Fecha / IVA / Valor / Total (actualizado en Fase 4e con
+datos reales de Mansor, según facturación colombiana) para facturas en español, permite
+validación humana de lo detectado y almacena todo en Supabase con aislamiento estricto
+por usuario vía Row Level Security.
 
 Fuera de alcance en esta versión: soporte PDF, PWA, modo offline, integración contable
 (SIIGO u otra) — ver RF-006 en la matriz de trazabilidad.

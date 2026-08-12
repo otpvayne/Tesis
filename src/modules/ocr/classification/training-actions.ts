@@ -247,3 +247,50 @@ export async function saveSyntheticModel(input: SaveSyntheticModelInput): Promis
   revalidatePath("/ocr-lab/train");
   return { modelId: inserted.id, version };
 }
+
+/**
+ * Activa un modelo (`GET /api/ocr/active-model`, Fase 4e, lo lee) —
+ * ninguna de las dos funciones de entrenamiento de arriba activa el
+ * modelo que produce, a propósito (`MODEL_TRAINED` ≠ `MODEL_ACTIVATED`,
+ * decisión explícita). Sin esto, `/documents/[id]` nunca tendría un
+ * modelo que usar: se agregó al notar el hueco al cablear Fase 4e, no
+ * estaba en el prompt original de esta fase.
+ *
+ * Desactiva primero todos los demás modelos de `document_type` y luego
+ * activa el pedido (dos updates, no uno) para no violar nunca, ni
+ * transitoriamente, el índice único parcial `ocr_models_one_active_per_type`.
+ */
+export async function activateModel(modelId: string): Promise<void> {
+  const { supabase, userId } = await requireAdmin();
+
+  const { data: model, error: fetchError } = await supabase
+    .from("ocr_models")
+    .select("id, document_type, version")
+    .eq("id", modelId)
+    .single();
+  if (fetchError || !model) {
+    throw new Error(`Modelo no encontrado: ${fetchError?.message ?? modelId}`);
+  }
+
+  const { error: deactivateError } = await supabase
+    .from("ocr_models")
+    .update({ active: false })
+    .eq("document_type", model.document_type)
+    .neq("id", modelId);
+  if (deactivateError) {
+    throw new Error(`No se pudo desactivar el modelo anterior: ${deactivateError.message}`);
+  }
+
+  const { error: activateError } = await supabase.from("ocr_models").update({ active: true }).eq("id", modelId);
+  if (activateError) {
+    throw new Error(`No se pudo activar el modelo: ${activateError.message}`);
+  }
+
+  await logAuditEvent(supabase, {
+    actorId: userId,
+    action: "MODEL_ACTIVATED",
+    metadata: { document_type: model.document_type, version: model.version, modelId },
+  });
+
+  revalidatePath("/ocr-lab/train");
+}
