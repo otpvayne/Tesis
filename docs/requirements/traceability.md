@@ -11,7 +11,7 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 | ID | Caso de uso | Módulo | Archivos | Prueba | Estado |
 |---|---|---|---|---|---|
 | RF-001 | Capturar documento por cámara o selección de imagen | `modules/camera` | `src/modules/camera/{errors,availability,resolution,use-camera-stream,CameraCapture}.{ts,tsx}`, `src/app/(dashboard)/documents/new/page.tsx` | lógica pura: `tests/unit/modules/camera/*.test.ts` (18/18 verde); captura/preview/stream real: **sin test automatizado posible** (jsdom no implementa `getUserMedia`/`<video>`), pendiente de verificación manual — ver checklist en el cierre de Fase 3 | IMPLEMENTED (no VERIFIED) |
-| RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b): `src/modules/ocr/segmentation/*.ts`, `src/modules/ocr/config.ts`; clasificación + entrenamiento sintético (4c/4d): `src/modules/ocr/classification/*.ts`; pipeline completo (4e): `src/modules/ocr/pipeline/ocr-pipeline.ts` | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (53/53); segmentación: `tests/unit/modules/ocr/segmentation/*.test.ts` (40/40); clasificación/entrenamiento/extracción: `tests/unit/modules/ocr/classification/*.test.ts` (53/53); pipeline: `tests/unit/modules/ocr/pipeline/*.test.ts` (5/5) | IN_PROGRESS — preprocesamiento (4a), segmentación (4b), clasificación (4c), infraestructura de entrenamiento (4d) y pipeline completo (4e) **VERIFIED** (algoritmos correctos, medido con `ImageData` sintética real — no requiere canvas de navegador salvo `decodeImage`); evaluación real sobre `test` sigue PENDING (Fase 4f) |
+| RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b): `src/modules/ocr/segmentation/*.ts`, `src/modules/ocr/config.ts`; clasificación + entrenamiento sintético (4c/4d): `src/modules/ocr/classification/*.ts`; pipeline completo (4e): `src/modules/ocr/pipeline/ocr-pipeline.ts`; evaluación (4f): `src/modules/ocr/evaluation/*.ts` | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (53/53); segmentación: `tests/unit/modules/ocr/segmentation/*.test.ts` (40/40); clasificación/entrenamiento/extracción: `tests/unit/modules/ocr/classification/*.test.ts` (53/53); pipeline: `tests/unit/modules/ocr/pipeline/*.test.ts` (5/5); evaluación: `tests/unit/modules/ocr/evaluation/*.test.ts` (19/19) | IN_PROGRESS — algoritmos de las 6 fases (4a-4f) **VERIFIED** sobre datos sintéticos/`ImageData` directa; evaluación real sobre `test` con facturas de Mansor sigue PENDING (nadie ha etiquetado todavía, ver `docs/ocr/evaluation.md` §6) |
 | RF-003 | Extracción de campos obligatorios: Proveedor, NIT, Fecha, IVA, Valor, Total (actualizado Fase 4e con datos reales de Mansor; especificado según facturación colombiana — reemplaza la definición de Fase 0 `proveedor/fecha/monto_total` + `numero_factura` deseado) para `invoice_es` | `src/modules/ocr/classification/field-extraction.ts` | `tests/unit/modules/ocr/classification/field-extraction.test.ts` (9/9, incluye el ejemplo exacto del prompt de esta fase y el caso `Total`/`Subtotal`) | VERIFIED (heurística correcta sobre texto sintético; sin facturas reales de Mansor probadas todavía) |
 | RF-004 | Almacenar documento original + datos asociados en Supabase | `modules/documents` | esquema: `supabase/migrations/20260811200929_create_documents.sql`; bucket: `supabase/migrations/20260811205322_create_documents_storage_bucket.sql`; subida: `src/modules/documents/actions.ts`, `src/app/(dashboard)/documents/new/page.tsx` | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7, incluye caso ADMIN con sesión real) | VERIFIED |
 | RF-005 | Consultar documentos con filtros (proveedor, fecha, monto, estado) | `modules/documents` | `src/modules/documents/queries.ts`, `src/app/(dashboard)/documents/page.tsx` | `tests/integration/document-filters.test.ts` (7/7 verde) | status/fecha **VERIFIED** con datos reales; proveedor/monto **IMPLEMENTED** (query correcta contra muestra sintética de `ocr_results`, sin datos reales que filtrar hasta RF-002/RF-003 en Fase 4/5 — no es un bug, es orden de fases) |
@@ -358,3 +358,45 @@ Con 2-3 facturas reales de Mansor, procesarlas en `/documents/[id]` y reportar:
   alguien entrene y **active** un modelo (Fase 4c/4d ya construyeron el entrenamiento,
   pero ningún modelo se activa automáticamente — es una decisión explícita, todavía
   pendiente).
+
+## Entregables técnicos de Fase 4f
+
+| Entregable | Archivo(s) | Prueba | Estado |
+|---|---|---|---|
+| `character-metrics.ts` (`evaluateCharacterRecognition`/`computeCharacterMetrics`: accuracy, per-class, matriz de confusión, top misclassifications) | `src/modules/ocr/evaluation/character-metrics.ts` | `tests/unit/modules/ocr/evaluation/character-metrics.test.ts` (4/4, incluye caso con errores deliberados verificado a mano) | VERIFIED |
+| `field-extraction-metrics.ts` (`evaluateFieldExtraction`/`computeFieldMetrics`: accuracy/precision/recall/F1 por campo, tolerancia numérica) | `src/modules/ocr/evaluation/field-extraction-metrics.ts` | `tests/unit/modules/ocr/evaluation/field-extraction-metrics.test.ts` (4/4, TP/FP/FN verificados a mano) | VERIFIED |
+| `performance-benchmark.ts` (`benchmarkPerformanceOnImageData`/`computeBenchmarkFromTimings`: promedio, P95/P99, throughput, cuello de botella real) | `src/modules/ocr/evaluation/performance-benchmark.ts` | `tests/unit/modules/ocr/evaluation/performance-benchmark.test.ts` (5/5, percentiles verificados a mano) | VERIFIED |
+| `reproducibility-test.ts` (`testReproducibility`: determinismo real, no asumido) | `src/modules/ocr/evaluation/reproducibility-test.ts` | `tests/unit/modules/ocr/evaluation/reproducibility-test.test.ts` (3/3, confirma 100% reproducibilidad y varianza exacta 0) | VERIFIED |
+| `generate-report.ts` (`generateEvaluationReport`: formatea métricas reales a texto, `datasetLabel` obligatorio) | `src/modules/ocr/evaluation/generate-report.ts` | `tests/unit/modules/ocr/evaluation/generate-report.test.ts` (3/3, confirma que no reporta los números de ejemplo del prompt original) | VERIFIED |
+| `evaluateActiveModelOnTestPartition` (evaluación real contra `ocr_training_samples`, partición `test`) + sección "Evaluación del modelo activo" en `/ocr-lab/train` | `src/modules/ocr/classification/training-actions.ts`, `src/app/(dashboard)/ocr-lab/train/evaluation-panel.tsx` | `npm run build` sin errores; **sin verificación contra Supabase real** (no hay muestras de `test` reales todavía) | IMPLEMENTED (no VERIFIED) |
+| Corrección: `ocr_models.model_data` tenía dos formas distintas según de qué función salía (Fase 4c vs 4d) — unificado a `KNNClassifier.toJSON()` | `src/modules/ocr/classification/training-actions.ts` | cubierto por el build/typecheck; sin modelos reales en la base para verificar la migración de datos (no hay ninguno todavía) | IMPLEMENTED |
+| `docs/ocr/evaluation.md` §5-6 (infraestructura + estado real: sin mediciones sobre `test` real, corrida de validación con datos sintéticos) | `docs/ocr/evaluation.md` | ejemplos tomados directo de una corrida real de esta sesión | VERIFIED |
+
+### Corrida de validación con datos sintéticos (Fase 4f, esta sesión) — ver detalle en `docs/ocr/evaluation.md` §6
+
+No representa precisión sobre facturas reales (alfabeto sintético de 2 formas, no
+deletrea keywords reales) — solo confirma que las 4 herramientas de evaluación
+calculan correctamente:
+
+```
+Character Recognition: 88.2% (15/17) — confusión '7'→'1': 2 veces
+Field Extraction:      0.0% (esperado y honesto: el alfabeto de 2 formas no
+                        puede deletrear "NIT"/"Total"/etc. — no es un fallo
+                        de field-extraction.ts, ya verificado a fondo en
+                        Fase 4e con 9/9 tests)
+Performance:            7.4ms promedio (facturas triviales de 3 caracteres,
+                        NO comparable con el benchmark representativo de
+                        Fase 4e: ~1184 caracteres, 4849.2ms total)
+Reproducibility:        100.0% (varianza = 0 exacta)
+```
+
+### Qué debe revisar el equipo (pedido explícito de esta fase)
+
+Ninguna cifra de este cierre representa evaluación real sobre facturas de Mansor — eso
+requiere que exista dataset real en la partición `test` de `ocr_training_samples`
+(pendiente, mismo hueco que Fase 4c/4d/4e ya señalaron). Cuando exista:
+
+- Correr "Evaluar modelo activo sobre 'test'" en `/ocr-lab/train` y reportar el
+  accuracy/matriz de confusión reales.
+- Comparar contra los objetivos progresivos de `docs/ocr/evaluation.md` §4 (>70% →
+  >80% → ≥85% en campos obligatorios).

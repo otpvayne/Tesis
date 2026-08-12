@@ -5,16 +5,22 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 4e — Pipeline OCR completo + extracción de campos (en cierre).**
+> Estado actual: **Fase 4f — Evaluación OCR: métricas y benchmark (en cierre).**
 > Pipeline propio de extremo a extremo: preprocesamiento (4a) + segmentación (4b) + HOG
 > y kNN (4c) + entrenamiento sintético (4d) + reconstrucción de texto y extracción de
-> campos (4e), 234 tests. RF-003 actualizado con datos reales de Mansor: extrae
-> **Proveedor, NIT, Fecha, IVA, Valor, Total** (antes `proveedor/fecha/monto_total`).
-> `/documents/[id]` tiene un botón "Procesar documento" que corre el pipeline completo
-> en el navegador (requiere Canvas real — no ejecutable en esta sesión) y muestra los
-> campos extraídos con su confianza. Benchmark real medido: ~4.85s para una factura
-> sintética de ~1184 caracteres — dentro del objetivo <5s de RNF-001 pero con margen
-> mínimo, ver `docs/ocr/extraction.md`. Ningún modelo está activado todavía — el equipo
+> campos (4e) + evaluación (4f), 253 tests. RF-003: **Proveedor, NIT, Fecha, IVA, Valor,
+> Total**. Nueva infraestructura `modules/ocr/evaluation/`: accuracy por carácter
+> (matriz de confusión dinámica), accuracy/precisión/recall/F1 por campo, benchmark de
+> tiempos (P95/P99, cuello de botella real), reproducibilidad, y un generador de reporte
+> de texto — más una evaluación real del modelo activo contra la partición `test` real
+> de `ocr_training_samples`, disponible en `/ocr-lab/train`. **Sin datos reales
+> todavía:** nadie ha etiquetado facturas reales de Mansor en `test`, así que esa
+> evaluación lanza un error explícito si se corre hoy. La única corrida hecha esta fase
+> usa un alfabeto sintético de 2 formas para validar la aritmética (88.2% character
+> accuracy, 100% reproducibilidad — no representan precisión real), ver
+> `docs/ocr/evaluation.md` §6. Benchmark representativo sigue siendo el de Fase 4e:
+> ~4.85s para una factura sintética de ~1184 caracteres, dentro del objetivo <5s de
+> RNF-001 pero con margen mínimo. Ningún modelo está activado todavía — el equipo
 > debe correr `/ocr-lab/train` y activar uno antes de que esto funcione end-to-end. Ver
 > [`docs/roadmap.md`](docs/roadmap.md) y `CLAUDE.md` §13 para desviaciones pendientes.
 

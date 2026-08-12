@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/modules/audit/log";
-import { KNNClassifier } from "@/modules/ocr/classification/knn-classifier";
+import { KNNClassifier, type SerializedKNNClassifier } from "@/modules/ocr/classification/knn-classifier";
+import { computeCharacterMetrics, type CharacterMetrics } from "@/modules/ocr/evaluation/character-metrics";
 import {
   DATASET_PARTITIONS,
   type DatasetStats,
@@ -166,10 +167,13 @@ export async function trainAndEvaluateModel(): Promise<TrainAndEvaluateResult> {
       document_type: DOCUMENT_TYPE,
       version,
       active: false,
-      model_data: {
-        descriptors: trainRows.map((row) => Array.from(toDescriptor(row.feature_data))),
-        labels: trainRows.map((row) => row.label),
-      } as Json,
+      // knn.toJSON() (Fase 4d) -- antes se armaba {descriptors, labels} a
+      // mano aquí mismo (previo a que existiera esa serialización), dos
+      // formas distintas del mismo model_data según de qué función salía.
+      // Unificado en Fase 4f al notar la inconsistencia al escribir la
+      // evaluación (necesita leer cualquier modelo activo con una sola
+      // forma esperada).
+      model_data: knn.toJSON() as unknown as Json,
       metrics: { accuracy, trainCount: trainRows.length, testCount: testRows.length, classes } as Json,
     })
     .select("id")
@@ -293,4 +297,72 @@ export async function activateModel(modelId: string): Promise<void> {
   });
 
   revalidatePath("/ocr-lab/train");
+}
+
+export interface CharacterEvaluationResult {
+  metrics: CharacterMetrics;
+  modelVersion: string;
+  modelId: string;
+}
+
+/**
+ * Evalúa el modelo **activo** contra la partición `test` real de
+ * `ocr_training_samples` (Fase 4f) — nunca `train`/`validation`
+ * (`CLAUDE.md` §7/§10). `ocr_training_samples.feature_data` guarda el
+ * descriptor HOG ya extraído (no `ImageData`), así que se predice
+ * directamente con `KNNClassifier.predict(descriptor)` — de ahí
+ * `computeCharacterMetrics` (la mitad "pura" de `character-metrics.ts`,
+ * sin pasar por `CharacterClassifier`/`extractHOG`, que necesitarían una
+ * imagen que no existe aquí).
+ *
+ * Si `test` está vacío (nadie ha etiquetado facturas reales todavía —
+ * estado real de este proyecto en Fase 4f), lanza un error explícito en
+ * vez de devolver una métrica sobre 0 casos disfrazada de resultado real.
+ */
+export async function evaluateActiveModelOnTestPartition(): Promise<CharacterEvaluationResult> {
+  const { supabase } = await requireAdmin();
+
+  const { data: activeModel, error: modelError } = await supabase
+    .from("ocr_models")
+    .select("id, version, model_data")
+    .eq("document_type", DOCUMENT_TYPE)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (modelError) {
+    throw new Error(`No se pudo leer el modelo activo: ${modelError.message}`);
+  }
+  if (!activeModel) {
+    throw new Error(`No hay un modelo activo para document_type="${DOCUMENT_TYPE}" — activa uno primero.`);
+  }
+
+  const { data: testRows, error: testError } = await supabase
+    .from("ocr_training_samples")
+    .select("label, feature_data")
+    .eq("document_type", DOCUMENT_TYPE)
+    .eq("dataset_partition", "test");
+
+  if (testError) {
+    throw new Error(`No se pudo leer la partición test: ${testError.message}`);
+  }
+  if (!testRows || testRows.length === 0) {
+    throw new Error("La partición 'test' está vacía todavía — etiqueta y guarda caracteres con partición 'test' en OCR LAB antes de evaluar.");
+  }
+
+  const knn = KNNClassifier.fromJSON(activeModel.model_data as unknown as SerializedKNNClassifier);
+
+  const predictions = testRows.map((row) => {
+    const parsed = row.feature_data as { descriptor?: number[] };
+    if (!Array.isArray(parsed.descriptor)) {
+      throw new Error("Una muestra de test tiene feature_data corrupto (sin 'descriptor').");
+    }
+    const prediction = knn.predict(new Float32Array(parsed.descriptor));
+    return { expected: row.label, predicted: prediction.label };
+  });
+
+  return {
+    metrics: computeCharacterMetrics(predictions),
+    modelVersion: activeModel.version,
+    modelId: activeModel.id,
+  };
 }
