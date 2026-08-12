@@ -238,7 +238,11 @@ umbral; una corrida contigua de filas/columnas que NO son valle es una región d
 contenido (línea de texto, o palabra dentro de una línea). Dos umbrales distintos,
 documentados con su razón en `modules/ocr/config.ts`:
 
-- `HORIZONTAL_VALLEY_THRESHOLD = 5` — separa líneas de texto entre sí.
+- `HORIZONTAL_VALLEY_THRESHOLD = 10` — separa líneas de texto entre sí. Subido de 5 a
+  10 tras un bug real (Fase 4b): con 5, filas "valle" en documentos con estructura
+  (bordes de tabla que atraviesan todo el bloque de texto, ruido residual no
+  eliminado por el denoise 3×3) alcanzaban el umbral y fusionaban todas las líneas
+  en una sola región. Ver razón completa en `modules/ocr/config.ts`.
 - `VERTICAL_VALLEY_THRESHOLD = 2` — separa palabras dentro de una línea, más bajo a
   propósito porque el espacio entre letras de una misma palabra también genera
   columnas con pocos píxeles.

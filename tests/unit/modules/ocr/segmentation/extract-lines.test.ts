@@ -4,20 +4,20 @@ import { findConnectedComponents } from "@/modules/ocr/segmentation/connected-co
 import { computeProjections } from "@/modules/ocr/segmentation/projections";
 import { binaryImageFromRows } from "./test-helpers";
 
-// Dos "líneas de texto" (filas 0-2 y 5-7), cada una con 2 bloques de 3x3
-// (6 píxeles blancos por fila, por encima del HORIZONTAL_VALLEY_THRESHOLD
-// por defecto de 5), separadas por 2 filas completamente negras (valle).
+// Dos "líneas de texto" (filas 0-2 y 5-7), cada una con 2 bloques de 5x3
+// (10 píxeles blancos por fila, igual al HORIZONTAL_VALLEY_THRESHOLD por
+// defecto de 10), separadas por 2 filas completamente negras (valle).
 const TWO_LINES_IMAGE = binaryImageFromRows([
-  "###.###...",
-  "###.###...",
-  "###.###...",
-  "..........",
-  "..........",
-  "###.###...",
-  "###.###...",
-  "###.###...",
-  "..........",
-  "..........",
+  "#####.#####...",
+  "#####.#####...",
+  "#####.#####...",
+  "..............",
+  "..............",
+  "#####.#####...",
+  "#####.#####...",
+  "#####.#####...",
+  "..............",
+  "..............",
 ]);
 
 describe("extractLines", () => {
@@ -66,7 +66,7 @@ describe("extractLines", () => {
   });
 
   it("una única línea que ocupa toda la imagen (sin valle final) también se detecta", () => {
-    const image = binaryImageFromRows(["#####", "#####", "#####"]);
+    const image = binaryImageFromRows(["##########", "##########", "##########"]);
     const components = findConnectedComponents(image);
     const lines = extractLines(image, components);
     expect(lines).toHaveLength(1);
