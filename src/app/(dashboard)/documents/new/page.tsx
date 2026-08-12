@@ -7,11 +7,22 @@ import { DOCUMENT_TYPES } from "@/modules/documents/types";
 import { getDocumentTypeLabel } from "@/lib/constants/document-display";
 import { CameraCapture } from "@/modules/camera/CameraCapture";
 import { checkCameraAvailability } from "@/modules/camera/availability";
+import { isMobileDevice } from "@/modules/camera/device";
+
+/** `navigator.userAgentData` es experimental (solo Chromium) y todavía no
+ * está en los tipos de TypeScript/lib.dom — se declara el mínimo necesario
+ * en vez de usar `any`. */
+interface NavigatorUAData {
+  mobile: boolean;
+}
 
 export default function NewDocumentPage() {
   const [state, formAction, pending] = useActionState(createDocument, createDocumentInitialState);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Soporte técnico (getUserMedia + contexto seguro) Y dispositivo móvil
+  // (RNF-002/mobile first: en desktop no se ofrece cámara, solo el
+  // selector de archivo — pedido explícito del equipo tras testing real).
   const [cameraSupported, setCameraSupported] = useState(false);
   // Distinto de cameraSupported: ese es solo el chequeo previo (contexto
   // seguro + API presente); esto marca que getUserMedia falló en la
@@ -22,16 +33,22 @@ export default function NewDocumentPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const cameraAvailable = cameraSupported && !cameraFailed;
 
-  // Chequeo de soporte solo en el cliente: getUserMedia/isSecureContext no
-  // existen durante el render en servidor, así que no se puede derivar
-  // este estado durante el render (rompería la hidratación) — tiene que
-  // vivir en un efecto que solo corre tras montar en el navegador.
+  // Chequeo de soporte solo en el cliente: getUserMedia/isSecureContext/
+  // userAgentData no existen durante el render en servidor, así que no se
+  // puede derivar este estado durante el render (rompería la hidratación)
+  // — tiene que vivir en un efecto que solo corre tras montar en el
+  // navegador.
   useEffect(() => {
     const availabilityError = checkCameraAvailability({
       hasMediaDevices: typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia,
       isSecureContext: typeof window !== "undefined" && window.isSecureContext,
     });
-    const supported = availabilityError === null;
+    const uaData = (navigator as Navigator & { userAgentData?: NavigatorUAData }).userAgentData;
+    const mobile = isMobileDevice({
+      userAgentDataMobile: uaData?.mobile,
+      maxTouchPoints: navigator.maxTouchPoints,
+    });
+    const supported = availabilityError === null && mobile;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- ver comentario arriba del efecto
     setCameraSupported(supported);
     setShowCamera(supported);
