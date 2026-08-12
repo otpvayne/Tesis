@@ -235,8 +235,8 @@ servidor de desarrollo o herramientas de navegador en esta sesión (sección 11)
 
 ## 13. Estado actual
 
-Fase activa: **Fase 4a — Preprocesamiento OCR** (en cierre, esperando aprobación).
-Fases 0, 1, 2 y 3 integradas a `main`. Ver `docs/roadmap.md` para el plan de fases
+Fase activa: **Fase 4b — Segmentación OCR** (en cierre, esperando aprobación).
+Fases 0, 1, 2, 3 y 4a integradas a `main`. Ver `docs/roadmap.md` para el plan de fases
 siguientes y `docs/requirements/traceability.md` para el estado por requerimiento.
 
 <!-- BEGIN:nextjs-agent-rules -->

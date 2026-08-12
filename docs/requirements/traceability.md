@@ -11,7 +11,7 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 | ID | Caso de uso | Módulo | Archivos | Prueba | Estado |
 |---|---|---|---|---|---|
 | RF-001 | Capturar documento por cámara o selección de imagen | `modules/camera` | `src/modules/camera/{errors,availability,resolution,use-camera-stream,CameraCapture}.{ts,tsx}`, `src/app/(dashboard)/documents/new/page.tsx` | lógica pura: `tests/unit/modules/camera/*.test.ts` (18/18 verde); captura/preview/stream real: **sin test automatizado posible** (jsdom no implementa `getUserMedia`/`<video>`), pendiente de verificación manual — ver checklist en el cierre de Fase 3 | IMPLEMENTED (no VERIFIED) |
-| RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b), clasificación (4c), pipeline en worker (4e): *(pendiente)* | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (42/42 verde) | IN_PROGRESS — preprocesamiento (4a) **VERIFIED**; el resto del reconocimiento (segmentación/clasificación/pipeline) sigue PENDING |
+| RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b): `src/modules/ocr/segmentation/*.ts`, `src/modules/ocr/config.ts`; clasificación (4c), pipeline en worker (4e): *(pendiente)* | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (42/42); segmentación: `tests/unit/modules/ocr/segmentation/*.test.ts` (40/40) | IN_PROGRESS — preprocesamiento (4a) y segmentación (4b) **VERIFIED**; clasificación/entrenamiento/pipeline/evaluación siguen PENDING |
 | RF-003 | Extraer proveedor, fecha, monto_total (deseado: numero_factura) para `invoice_es` | `modules/ocr/extraction` | *(Fase 4e)* | *(Fase 4e/4f)* | PENDING |
 | RF-004 | Almacenar documento original + datos asociados en Supabase | `modules/documents` | esquema: `supabase/migrations/20260811200929_create_documents.sql`; bucket: `supabase/migrations/20260811205322_create_documents_storage_bucket.sql`; subida: `src/modules/documents/actions.ts`, `src/app/(dashboard)/documents/new/page.tsx` | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7, incluye caso ADMIN con sesión real) | VERIFIED |
 | RF-005 | Consultar documentos con filtros (proveedor, fecha, monto, estado) | `modules/documents` | `src/modules/documents/queries.ts`, `src/app/(dashboard)/documents/page.tsx` | `tests/integration/document-filters.test.ts` (7/7 verde) | status/fecha **VERIFIED** con datos reales; proveedor/monto **IMPLEMENTED** (query correcta contra muestra sintética de `ocr_results`, sin datos reales que filtrar hasta RF-002/RF-003 en Fase 4/5 — no es un bug, es orden de fases) |
@@ -149,3 +149,57 @@ La UI de `/ocr-lab/preview` tampoco tiene verificación visual (prohibido en est
 `CLAUDE.md` §11) — el equipo debe abrirla en Vercel, cargar una factura real, y
 confirmar que cada botón (Grayscale/Normalizar/Otsu/Denoise) produce visualmente lo
 esperado, capturando pantallazos como evidencia.
+
+## Entregables técnicos de Fase 4b
+
+| Entregable | Archivo(s) | Prueba | Estado |
+|---|---|---|---|
+| `OCR_CONFIG` (parámetros centralizados, documentados) | `src/modules/ocr/config.ts` | usado por todo lo de abajo; referencia `MIN_RESOLUTION` desde `camera/resolution.ts` sin duplicar el número | IMPLEMENTED |
+| `findConnectedComponents` (8-conectividad, BFS O(n)) | `src/modules/ocr/segmentation/connected-components.ts` | `tests/unit/modules/ocr/segmentation/connected-components.test.ts` (6/6) | VERIFIED |
+| `computeProjections` | `src/modules/ocr/segmentation/projections.ts` | `tests/unit/modules/ocr/segmentation/projections.test.ts` (5/5) | VERIFIED |
+| `extractLines` (valles horizontales) | `src/modules/ocr/segmentation/extract-lines.ts` | `tests/unit/modules/ocr/segmentation/extract-lines.test.ts` (6/6) | VERIFIED |
+| `extractWordsFromLine` (valles verticales por línea) | `src/modules/ocr/segmentation/extract-words.ts` | `tests/unit/modules/ocr/segmentation/extract-words.test.ts` (5/5) | VERIFIED |
+| `extractCharactersFromWord` (1 componente = 1 carácter + filtros) | `src/modules/ocr/segmentation/extract-characters.ts` | `tests/unit/modules/ocr/segmentation/extract-characters.test.ts` (6/6, incluye aislamiento de píxeles verificado a mano con una forma en L) | VERIFIED |
+| `normalizeCharacter` (resize nearest-neighbor, aspect ratio preservado) | `src/modules/ocr/segmentation/normalize-character.ts` | `tests/unit/modules/ocr/segmentation/normalize-character.test.ts` (5/5, incluye caso 1×2→4×4 calculado a mano) | VERIFIED |
+| `ensureTextIsForeground` (corrección de polaridad texto/fondo) | `src/modules/ocr/segmentation/normalize-polarity.ts` | `tests/unit/modules/ocr/segmentation/normalize-polarity.test.ts` (5/5) | VERIFIED |
+| Pipeline 4a+4b completo (preprocesamiento → polaridad → segmentación → normalización) | — (test de integración) | `tests/unit/modules/ocr/segmentation/pipeline.test.ts` (2/2, incluye test de regresión del bug de polaridad) | VERIFIED |
+| `docs/ocr/algorithms.md` §7–11 con fórmulas reales, pseudocódigo y limitaciones documentadas | `docs/ocr/algorithms.md` | ejemplos tomados directo de los tests arriba | VERIFIED |
+| UI de segmentación en `/ocr-lab/preview` (bounding boxes, líneas, palabras, grid de caracteres, normalizar) | `src/app/(dashboard)/ocr-lab/preview/ocr-preview-client.tsx` | `npm run build` sin errores; **sin verificación visual** — capturas las toma el equipo manualmente en Vercel | IMPLEMENTED (no VERIFIED) |
+
+### Bug real encontrado y corregido en esta fase: polaridad texto/fondo
+
+Al diseñar el test de integración 4a+4b (no al ejecutar en producción) se encontró que
+`otsuBinarization` (Fase 4a) no garantiza que el texto quede en `255` — en una factura
+típica (papel claro, tinta oscura) el texto es la clase minoritaria y más oscura, así
+que queda en `0`. `findConnectedComponents` asume `255` = primer plano. Sin corrección,
+la segmentación habría encontrado el papel en blanco como si fuera el contenido. Se
+corrigió con `ensureTextIsForeground` (heurística: invertir si el blanco es
+mayoritario), con un test de regresión explícito que reproduce el bug sin la corrección
+(ver `docs/ocr/algorithms.md` §10).
+
+### Limitaciones conocidas documentadas (no bugs — comportamiento del algoritmo tal como se especificó)
+
+1. **1 componente = 1 carácter**: si un carácter se fractura en varios componentes
+   (ej. una "í" con el punto separado por binarización imperfecta), o si dos caracteres
+   se tocan y quedan fusionados en un único componente, esta fase no re-funde ni
+   re-parte. Válido para facturas impresas bien definidas; a revisar con datos reales
+   (Fase 4d/4f).
+2. **Umbral simple de palabras**: con `VERTICAL_VALLEY_THRESHOLD = 2`, una sola columna
+   vacía entre dos caracteres que se tocan ya se lee como fin de palabra — no hay
+   distinción entre "hueco de una letra a otra" y "espacio real entre palabras" por
+   ancho del hueco. Implementación fiel a lo especificado; limitación del enfoque, no
+   error de código.
+
+### Qué debe revisar el equipo con una factura real de Mansor (pedido explícito de esta fase)
+
+Al abrir `/ocr-lab/preview` con una factura real, avisar si:
+
+- Caracteres aparecen fracturados (un componente = medio carácter visualmente).
+- Líneas o palabras no se segmentan correctamente (valles mal identificados — podría
+  requerir ajustar `HORIZONTAL_VALLEY_THRESHOLD`/`VERTICAL_VALLEY_THRESHOLD` en
+  `modules/ocr/config.ts`).
+- Caracteres muy pequeños se pierden (por debajo de `CHAR_MIN_HEIGHT = 10`).
+
+Esa retroalimentación real es la que debe informar qué parámetros ajustar antes de
+Fase 4c (clasificación) — ningún valor de `OCR_CONFIG` está calibrado con datos reales
+todavía, son puntos de partida razonables, no resultados medidos.
