@@ -167,7 +167,7 @@ un único píxel blanco (`255`) aislado en el centro, la vecindad 3×3 completa 
 ceros y 1 blanco — la mediana (5º valor de 9 ordenados) es `0`, así que el ruido
 desaparece. El caso simétrico (blanco con un negro aislado) limpia igual de correcto.
 
-## 6. Operaciones morfológicas (propias) — Fase 4b, diseño
+## 6. Operaciones morfológicas (propias) — diseño, no implementado
 
 Erosión y dilatación binaria con kernel estructurante `K` (ej. 3×3):
 
@@ -177,27 +177,162 @@ dilation(x, y) = max{ B(x+i, y+j) : (i,j) ∈ K }
 ```
 
 Apertura = erosión seguida de dilatación (elimina ruido puntual); cierre = dilatación
-seguida de erosión (cierra huecos pequeños en trazos de caracteres). Se implementan
-ambas y se evalúa experimentalmente cuál aporta en `invoice_es`.
+seguida de erosión (cierra huecos pequeños en trazos de caracteres). **No se
+implementaron en Fase 4b** — el filtro de mediana de Fase 4a (§5) ya resultó
+suficiente para limpiar el ruido de la imagen sintética de prueba, y componentes
+conectados (§7) funcionó sin necesitar cerrar huecos en los trazos. Se revisita si
+datos reales (facturas de Mansor, Fase 4d) muestran que hace falta.
 
-## 7. Componentes conectados (propio) — Fase 4b, diseño
+## 7. Componentes conectados — `connected-components.ts` (Fase 4b, implementado)
 
-Etiquetado por *flood fill* / unión-búsqueda con conectividad 8 sobre píxeles de
-primer plano, para aislar cada glifo/blob antes de agrupar en caracteres. Complejidad
-objetivo O(n) sobre el número de píxeles.
-
-## 8. Proyecciones y segmentación — Fase 4b, diseño
-
-Proyección horizontal (suma de píxeles de primer plano por fila) para separar líneas de
-texto; proyección vertical dentro de cada línea para separar palabras y caracteres,
-usando valles (mínimos locales por debajo de un umbral) como puntos de corte:
+Etiquetado por BFS con **8-conectividad**: dos píxeles blancos (255) pertenecen al
+mismo componente si son vecinos horizontal, vertical, o **diagonalmente**. Los 8
+vecinos de un píxel `(x, y)`:
 
 ```
-projH(y) = Σ_x B(x, y)
-projV(x) = Σ_y B(x, y)   (dentro de una línea ya segmentada)
+(x-1,y-1) (x,y-1) (x+1,y-1)
+(x-1,y)             (x+1,y)
+(x-1,y+1) (x,y+1) (x+1,y+1)
 ```
 
-## 9. HOG — Histogram of Oriented Gradients (propio) — Fase 4c, diseño
+Se usa 8 en vez de 4-conectividad porque un carácter impreso puede tener trazos que
+solo se tocan en diagonal (ej. los serifs de una tipografía, o el cruce de una "X")
+— con 4-conectividad esos trazos se partirían en componentes separados que Fase 4b
+trataría incorrectamente como letras distintas.
+
+### Pseudocódigo (BFS con cola indexada, O(n) real)
+
+```
+visitado = matriz booleana width×height, todo falso
+componentes = []
+para cada píxel (x, y) en orden de fila:
+    si visitado[x,y] o no es blanco: continuar
+    // BFS desde (x,y)
+    cola = [(x,y)]; visitado[x,y] = true; head = 0
+    píxeles = []
+    mientras head < cola.length:
+        (cx,cy) = cola[head]; head += 1
+        píxeles.push((cx,cy))
+        para cada uno de los 8 vecinos (nx,ny) de (cx,cy):
+            si (nx,ny) dentro de límites y es blanco y no visitado:
+                visitado[nx,ny] = true
+                cola.push((nx,ny))
+    componentes.push({ píxeles, boundingBox: min/max de x,y en píxeles })
+retornar componentes
+```
+
+La cola usa un **puntero que avanza** (`head`), no `Array.shift()`: `shift()` es O(n)
+por llamada, lo que volvería el BFS O(n²) en componentes grandes. Verificado en
+`connected-components.test.ts`: dos píxeles diagonalmente adyacentes (`(0,0)` y
+`(1,1)`) forman **un** componente de 2 píxeles bajo 8-conectividad, no dos.
+
+## 8. Proyecciones y detección de valles — `projections.ts` (Fase 4b, implementado)
+
+```
+horizontal[y] = Σ_x [ B(x, y) = 255 ]     # píxeles blancos en la fila y
+vertical[x]   = Σ_y [ B(x, y) = 255 ]     # píxeles blancos en la columna x
+```
+
+Una fila/columna es un **valle** (espacio vacío) si su conteo cae por debajo de un
+umbral; una corrida contigua de filas/columnas que NO son valle es una región de
+contenido (línea de texto, o palabra dentro de una línea). Dos umbrales distintos,
+documentados con su razón en `modules/ocr/config.ts`:
+
+- `HORIZONTAL_VALLEY_THRESHOLD = 5` — separa líneas de texto entre sí.
+- `VERTICAL_VALLEY_THRESHOLD = 2` — separa palabras dentro de una línea, más bajo a
+  propósito porque el espacio entre letras de una misma palabra también genera
+  columnas con pocos píxeles.
+
+## 9. Extracción de líneas, palabras y caracteres (Fase 4b, implementado)
+
+**Líneas** (`extract-lines.ts`): se recorre `horizontal[y]` completo, se detectan las
+corridas contiguas de filas con `horizontal[y] >= HORIZONTAL_VALLEY_THRESHOLD`, y a
+cada corrida (una `LineRegion`) se le asignan los componentes cuyo bounding box se
+**solapa** (no solo toca un punto) con su rango `[yStart, yEnd]`.
+
+**Palabras** (`extract-words.ts`): la proyección vertical se calcula **solo con los
+píxeles de los componentes ya asignados a esa línea** (`component.pixels`), en un
+`Map<x, conteo>` disperso — no hace falta volver a tocar la `ImageData` completa ni
+conocer el ancho de la imagen. Se aplica la misma lógica de corridas contiguas sobre
+`x` en vez de `y`, con `VERTICAL_VALLEY_THRESHOLD`.
+
+**Caracteres** (`extract-characters.ts`): la suposición es **1 componente = 1
+carácter**. Cada componente de una palabra se convierte en un `CharacterRegion`
+aislando sus propios píxeles (fondo negro opaco, trazo blanco) en un buffer del
+tamaño exacto de su bounding box — sin fuga de píxeles de componentes vecinos, aunque
+sus bounding boxes se solapen espacialmente (verificado con una forma en L en
+`extract-characters.test.ts`). Se descartan los componentes fuera de
+`[CHAR_MIN_HEIGHT, CHAR_MAX_HEIGHT]` (ruido o fallo de segmentación).
+
+**Limitación conocida de la suposición 1 componente = 1 carácter** (documentada en el
+código, no oculta): si un carácter queda fracturado en más de un componente (ej. una
+"í" con el punto separado del cuerpo por una binarización imperfecta), o si dos
+caracteres se tocan y quedan fusionados en un único componente (ej. una fuente
+condensada), esta fase no tiene lógica de re-fusión ni re-partición. Válida para
+facturas impresas bien definidas; se revisa con datos reales en Fase 4d/4f.
+
+**Limitación conocida de la detección de palabras por umbral simple**: con
+`VERTICAL_VALLEY_THRESHOLD = 2`, una sola columna completamente vacía entre dos
+caracteres que se tocan ya se lee como fin de palabra — el algoritmo no distingue
+"hueco de una letra a otra dentro de la misma palabra" de "espacio real entre
+palabras" por ancho del hueco, solo por si hay algún píxel o no. No es un bug del
+código (implementa exactamente lo especificado), es una limitación del enfoque de
+threshold simple — a revisar si datos reales muestran que corta palabras de más.
+
+## 10. Corrección de polaridad texto/fondo — `normalize-polarity.ts` (Fase 4b, implementado)
+
+**Bug real encontrado al diseñar el test de integración de esta fase** (no en
+producción, pero exactamente el tipo de fallo que habría aparecido con una factura
+real): `otsuBinarization` (Fase 4a) separa la imagen en dos clases por luminancia sin
+saber cuál "significa" texto — solo maximiza la varianza entre clases. En una factura
+típica (papel claro, tinta oscura), el texto es la clase **minoritaria y más oscura**,
+así que tras Otsu queda en `0` (negro). Pero `findConnectedComponents` (§7) asume que
+el primer plano a segmentar es `255` (blanco). Sin corrección, la segmentación
+"encontraría" el papel en blanco como si fuera el contenido, y el texto real quedaría
+invisible (los huecos negros).
+
+Heurística de corrección: se asume que el texto es la clase **minoritaria** de
+píxeles (la tinta cubre menos área que el papel en un documento típico):
+
+```
+whiteCount = # píxeles con valor 255
+si whiteCount > totalPíxeles / 2:
+    invertir imagen (0 ↔ 255)
+```
+
+Corre entre Fase 4a (`denoise`) y Fase 4b (`findConnectedComponents`). El test de
+integración incluye un caso de regresión explícito: el mismo pipeline **sin** este
+paso encuentra un "componente" que cubre más de la mitad de la imagen sintética de
+prueba (el papel), confirmando que el bug era real antes de la corrección.
+
+## 11. Normalización de caracteres — `normalize-character.ts` (Fase 4b, implementado)
+
+Cada carácter segmentado (tamaño variable) se lleva a un lienzo cuadrado
+`targetSize × targetSize` (32×32 por defecto, `OCR_CONFIG.CHAR_SIZE`) **sin
+distorsionar su forma**:
+
+```
+ratio = width / height
+si ratio >= 1 (más ancho que alto):
+    newWidth = targetSize
+    newHeight = round(targetSize / ratio)
+si no (más alto que ancho):
+    newHeight = targetSize
+    newWidth = round(targetSize · ratio)
+```
+
+El carácter se redimensiona a `newWidth × newHeight` con **interpolación
+nearest-neighbor** — no bilineal/suavizada: un carácter es una forma binaria de bordes
+duros, y suavizar introduciría grises intermedios que no existen en los datos
+originales, difuminando justo los bordes que el clasificador (Fase 4c) necesita
+distinguir. El resultado se centra en el lienzo `targetSize × targetSize`
+(`offset = floor((targetSize - nuevoLado) / 2)`), con el margen sobrante en negro.
+
+Ejemplo verificado en `normalize-character.test.ts`: un carácter de 10×20 (ratio 0.5,
+el doble de alto que de ancho) normalizado a 32×32 da `newHeight=32, newWidth=16` —
+sigue siendo el doble de alto que de ancho (`32 = 2×16`), la forma no se distorsiona.
+
+## 12. HOG — Histogram of Oriented Gradients (propio) — Fase 4c, diseño
 
 Sobre cada carácter normalizado a tamaño fijo (ej. `WxH` a definir en Fase 4c):
 
@@ -231,7 +366,7 @@ El vector de características final es la concatenación de todos los bloques
 normalizados. Todos los parámetros (`c`, `nbins`, tamaño de bloque, `ε`) se fijan
 experimentalmente en Fase 4c y se documentan aquí con su justificación una vez elegidos.
 
-## 10. k-Nearest Neighbors (propio) — Fase 4c, diseño
+## 13. k-Nearest Neighbors (propio) — Fase 4c, diseño
 
 **Distancia** entre vector de características de entrada `q` y cada muestra de
 entrenamiento `s_i` — distancia euclidiana como base:
@@ -252,7 +387,7 @@ score(class) = Σ_{i : label(s_i) = class} weight_i
 La clase predicha es `argmax_class score(class)`. `k` y `ε` se fijan experimentalmente
 en Fase 4c sobre el conjunto de `validation` (nunca `test`).
 
-## 11. Confidence score (fórmula) — Fase 4c/4e, diseño
+## 14. Confidence score (fórmula) — Fase 4c/4e, diseño
 
 Confianza por carácter, combinando consistencia del voto kNN y cercanía del vecino más
 próximo (ambas señales reales del clasificador, no arbitrarias):
@@ -276,16 +411,22 @@ confidence(field) = β · mean(confidence(char) para char en field)
 final y la justificación (no se inventan sin evidencia). Rango de salida siempre
 `[0.0, 1.0]`.
 
-## 12. Estado de este documento
+## 15. Estado de este documento
 
 **Secciones 1–5 (grayscale, normalización, histograma, Otsu, mediana): implementadas y
 verificadas por unit test desde Fase 4a** (`src/modules/ocr/preprocessing/`, 42 tests).
-Los ejemplos numéricos de este documento están tomados directamente de esos tests, no
-inventados aparte — si el código cambia, estos ejemplos deben volver a verificarse
-contra los tests, no al revés.
 
-**Secciones 6–11 (morfología, componentes conectados, proyecciones, HOG, kNN,
-confidence) siguen siendo fórmulas de diseño, no implementadas.** Ninguna cifra de
-precisión, tiempo de procesamiento o valor de parámetro (`k`, `α`, `β`, tamaño de
-celda, etc.) es válida hasta calibrarse experimentalmente en las fases correspondientes
-(4b/4c) y reportarse en `docs/ocr/evaluation.md` con el conjunto `test`.
+**Secciones 7–11 (componentes conectados, proyecciones, líneas/palabras/caracteres,
+corrección de polaridad, normalización de caracteres): implementadas y verificadas por
+unit test desde Fase 4b** (`src/modules/ocr/segmentation/`, 40 tests). Sección 6
+(morfología) sigue sin implementar — no resultó necesaria, ver nota en esa sección.
+
+Los ejemplos numéricos de este documento están tomados directamente de los tests
+correspondientes, no inventados aparte — si el código cambia, estos ejemplos deben
+volver a verificarse contra los tests, no al revés.
+
+**Secciones 12–14 (HOG, kNN, confidence) siguen siendo fórmulas de diseño, no
+implementadas.** Ninguna cifra de precisión, tiempo de procesamiento o valor de
+parámetro (`k`, `α`, `β`, tamaño de celda, etc.) es válida hasta calibrarse
+experimentalmente en Fase 4c y reportarse en `docs/ocr/evaluation.md` con el conjunto
+`test`.
