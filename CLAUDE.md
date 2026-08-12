@@ -235,10 +235,9 @@ servidor de desarrollo o herramientas de navegador en esta sesión (sección 11)
 
 ## 13. Estado actual
 
-Fase activa: **Fase 3 — Captura mobile first (cámara)** (en cierre, esperando
-aprobación). Fases 0, 1 y 2 integradas a `main`. Ver `docs/roadmap.md` para el plan de
-fases siguientes y `docs/requirements/traceability.md` para el estado por
-requerimiento.
+Fase activa: **Fase 4a — Preprocesamiento OCR** (en cierre, esperando aprobación).
+Fases 0, 1, 2 y 3 integradas a `main`. Ver `docs/roadmap.md` para el plan de fases
+siguientes y `docs/requirements/traceability.md` para el estado por requerimiento.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
