@@ -139,6 +139,19 @@ Caso degenerado (imagen completamente uniforme, un solo valor de gris): no exist
 medio del rango) como valor neutral — verificado en `otsu-binarization.test.ts` y no
 provoca error ni división por cero.
 
+### `thresholdMultiplier` (escape hatch experimental, Fase 4b)
+
+`otsuBinarization` acepta un tercer parámetro opcional `thresholdMultiplier` (por
+defecto `1`, sin efecto sobre la fórmula de arriba). Con fotos reales donde ruido o
+iluminación despareja hacen que el threshold automático clasifique demasiado fondo como
+"texto" (ver bug real documentado en el panel de diagnóstico de OCR LAB), permite mover
+el corte a mano para calibración manual mientras se junta evidencia suficiente para una
+corrección automática (ej. contraste adaptativo por región, Fase 4d). **No es parte de
+la fórmula de Otsu** — subirlo mueve más píxeles de fondo hacia la clase oscura
+(potencialmente empeorando la contaminación de ruido, no mejorándola — la dirección
+correcta depende de dónde cae el histograma real, se determina empíricamente por
+imagen, no se asume). Verificado en `otsu-binarization.test.ts` con un ejemplo a mano.
+
 ## 5. Reducción de ruido — filtro de mediana — `denoise.ts` (Fase 4a, implementado)
 
 Para cada píxel, se reemplaza su valor por la **mediana** (no el promedio) de sus
