@@ -10,5 +10,6 @@ export const DOCUMENT_STATUSES = [
   "processed",
   "validated",
   "failed",
+  "rejected",
 ] as const;
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];

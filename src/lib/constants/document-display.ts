@@ -1,4 +1,5 @@
 import type { DocumentStatus, DocumentType } from "@/modules/documents/types";
+import type { ValidationFieldName } from "@/modules/documents/validation-types";
 
 /**
  * Los valores internos (`invoice_es`, `uploaded`, etc.) quedan en inglés a
@@ -16,6 +17,7 @@ export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
   processed: "Procesado",
   validated: "Validado",
   failed: "Error",
+  rejected: "Rechazado",
 };
 
 /**
@@ -33,3 +35,13 @@ export function getDocumentTypeLabel(type: string): string {
 export function getDocumentStatusLabel(status: string): string {
   return DOCUMENT_STATUS_LABELS[status as DocumentStatus] ?? status;
 }
+
+/** RF-003 -- único lugar donde se traducen los 6 campos extraídos a español. */
+export const VALIDATION_FIELD_LABELS: Record<ValidationFieldName, string> = {
+  proveedor: "Proveedor",
+  nit: "NIT",
+  fecha: "Fecha",
+  iva: "IVA",
+  valor: "Valor",
+  total: "Total",
+};

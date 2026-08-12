@@ -22,6 +22,7 @@ export const AUDIT_ACTIONS = [
   "DOCUMENT_DELETED",
   "MODEL_TRAINED",
   "MODEL_ACTIVATED",
+  "DOCUMENT_REJECTED",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

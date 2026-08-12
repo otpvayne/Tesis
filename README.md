@@ -5,23 +5,20 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 4f — Evaluación OCR: métricas y benchmark (en cierre).**
-> Pipeline propio de extremo a extremo: preprocesamiento (4a) + segmentación (4b) + HOG
-> y kNN (4c) + entrenamiento sintético (4d) + reconstrucción de texto y extracción de
-> campos (4e) + evaluación (4f), 253 tests. RF-003: **Proveedor, NIT, Fecha, IVA, Valor,
-> Total**. Nueva infraestructura `modules/ocr/evaluation/`: accuracy por carácter
-> (matriz de confusión dinámica), accuracy/precisión/recall/F1 por campo, benchmark de
-> tiempos (P95/P99, cuello de botella real), reproducibilidad, y un generador de reporte
-> de texto — más una evaluación real del modelo activo contra la partición `test` real
-> de `ocr_training_samples`, disponible en `/ocr-lab/train`. **Sin datos reales
-> todavía:** nadie ha etiquetado facturas reales de Mansor en `test`, así que esa
-> evaluación lanza un error explícito si se corre hoy. La única corrida hecha esta fase
-> usa un alfabeto sintético de 2 formas para validar la aritmética (88.2% character
-> accuracy, 100% reproducibilidad — no representan precisión real), ver
-> `docs/ocr/evaluation.md` §6. Benchmark representativo sigue siendo el de Fase 4e:
-> ~4.85s para una factura sintética de ~1184 caracteres, dentro del objetivo <5s de
-> RNF-001 pero con margen mínimo. Ningún modelo está activado todavía — el equipo
-> debe correr `/ocr-lab/train` y activar uno antes de que esto funcione end-to-end. Ver
+> Estado actual: **Fase 5 — Validación humana: UI + base de datos (en cierre).** Motor
+> OCR propio completo (Fase 4, tag `v0.4.0-ocr`: preprocesamiento, segmentación,
+> HOG/kNN, entrenamiento sintético, extracción de campos, evaluación) + RF-007: tabla
+> interactiva de validación en `/documents/[id]` (6 campos, colores de confianza,
+> edición inline, estados ✅/🔧/⏳, botones "Guardar validación"/"Rechazar documento") y
+> dashboard de estadísticas en `/admin/validation-dashboard`, 276 tests. Reutiliza la
+> tabla `document_validations` ya existente desde Fase 1 en vez de crear una nueva —
+> detalle en `docs/requirements/traceability.md` ("Entregables técnicos de Fase 5").
+> Persistencia y RLS **verificadas contra Supabase real**
+> (`tests/integration/document-validations-rls.test.ts`, 10/10); la interacción de UI
+> en navegador (edición inline, colores, botones) queda como checklist manual para
+> Andres/Santiago — no se puede automatizar en esta sesión (`CLAUDE.md` §11). Ningún
+> modelo OCR está activado todavía — el equipo debe correr `/ocr-lab/train` y activar
+> uno antes de que "Procesar documento" funcione de extremo a extremo. Ver
 > [`docs/roadmap.md`](docs/roadmap.md) y `CLAUDE.md` §13 para desviaciones pendientes.
 
 ## Equipo
@@ -146,12 +143,15 @@ El modelo kNN actual es 100% sintético (88.2% accuracy). Para mejorar a 75-85% 
 
 **¿Qué hacer?**
 - Subir facturas en `/documents/new`
-- En `/documents/[id]` click "Procesar documento" y comparar los campos extraídos
-  (Proveedor, NIT, Fecha, IVA, Valor, Total) contra la factura real
-- **Nota:** todavía no existe un botón "Editar" en la UI — la edición/validación
-  manual de campos es RF-007 y está planeada para Fase 5, no implementada aún. Por
-  ahora: anotar y reportar discrepancias (documento, campo, valor esperado vs.
-  extraído) para priorizar el etiquetado del punto 1.
+- En `/documents/[id]` click "Procesar documento" → aparece la tabla de validación
+  (RF-007, Fase 5): revisa cada campo, click "Editar" para corregir el valor real,
+  Enter confirma
+- Click "Guardar validación" cuando termines de revisar los 6 campos, o "Rechazar
+  documento" si la captura no sirve
+- **Nota:** esta UI está implementada en la rama `fase/5-validacion-humana`, todavía
+  sin aprobar/mergear a `main` — la interacción real (edición inline, colores de
+  confianza) no se probó en navegador en esta sesión (`CLAUDE.md` §11), es la primera
+  vez que ustedes la ven. Si algo no funciona como se espera, repórtenlo.
 
 **Paralelo a etiquetado:** mientras etiquetan, van probando OCR y reportando fallos.
 
@@ -184,8 +184,8 @@ producción sin confirmar).
 | Fase 4 (OCR v0.4.0-ocr) | ✅ Completada | Claude Code |
 | **Etiquetado caracteres reales** | ⏳ **PENDIENTE** | **Andres & Santiago** |
 | **Reentrenamiento del modelo** | ⏳ **PENDIENTE** | **Andres & Santiago** |
-| **Validación de campos (reporte manual)** | ⏳ **PENDIENTE** | **Andres & Santiago** |
-| Fase 5 (Validación humana / RF-007) | ⏳ Por hacer | Claude Code |
+| Fase 5 (Validación humana / RF-007) | 🔧 En cierre, sin aprobar/mergear | Claude Code |
+| **Probar UI de validación en `/documents/[id]` (checklist manual)** | ⏳ **PENDIENTE** | **Andres & Santiago** |
 | Fase 6 (Admin) | ⏳ Por hacer | Claude Code |
 | Fase 7 (Testing) | ⏳ Por hacer | Claude Code |
 | Fase 8 (Deploy) | ⏳ Por hacer | Claude Code |
