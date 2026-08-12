@@ -238,12 +238,29 @@ servidor de desarrollo o herramientas de navegador en esta sesión (sección 11)
 
 ## 13. Estado actual
 
-Fase activa: **Fase 4f — Evaluación OCR (métricas y benchmark)** (en cierre, esperando
-aprobación). Fases 0, 1, 2, 3, 4a, 4b, 4c, 4d y 4e integradas a `main`. Ver
-`docs/roadmap.md` para el plan de fases siguientes y `docs/requirements/traceability.md`
-para el estado por requerimiento.
+Fase activa: **Fase 5 — Validación humana (UI + base de datos)** (en cierre, esperando
+aprobación). Fases 0, 1, 2, 3, 4a, 4b, 4c, 4d, 4e y 4f integradas a `main` (tag
+`v0.4.0-ocr`). Ver `docs/roadmap.md` para el plan de fases siguientes y
+`docs/requirements/traceability.md` para el estado por requerimiento.
 
-**Fase 4f no tiene datos reales que evaluar todavía:** se construyó la infraestructura
+**Fase 5 reutiliza `document_validations` en vez de recrearla:** esa tabla ya existía
+desde el bootstrap de Fase 1, con un esquema distinto al que pedía el enunciado de esta
+fase (`manually_edited boolean` en vez de `text[]`, sin `notes`). Se construyó sobre el
+esquema real: qué campo se corrigió se calcula comparando `original_extracted_data` vs
+`validated_data` (JSONB) en vez de mantener un array paralelo. Se agregó (aditivo) el
+valor `rejected` a `documents.status` y `DOCUMENT_REJECTED` a `audit_logs.action` vía
+migración, porque el botón "Rechazar documento" sí necesitaba un estado real. Detalle
+completo en `docs/requirements/traceability.md`, sección "Entregables técnicos de
+Fase 5".
+
+**UI de validación (`ValidationSection`/`ValidationSummary` en `/documents/[id]`,
+dashboard en `/admin/validation-dashboard`) implementada pero sin verificación de
+interacción real** — requiere navegador, prohibido en esta sesión (`CLAUDE.md` §11).
+Persistencia y RLS sí están **VERIFIED** contra Supabase real
+(`tests/integration/document-validations-rls.test.ts`, 10/10). Checklist manual para
+Andres/Santiago en `docs/requirements/traceability.md`.
+
+**Fase 4f no tiene datos reales que evaluar todavía (sin cambios desde su cierre):** se construyó la infraestructura
 completa (`modules/ocr/evaluation/`: métricas de caracteres, extracción de campos,
 benchmark, reproducibilidad, generador de reporte) y una evaluación real contra el
 modelo activo + partición `test` de `ocr_training_samples` — pero esa partición está

@@ -9,6 +9,9 @@ import { formatDateTime } from "@/lib/utils/format-date";
 import { getDocumentStatusLabel, getDocumentTypeLabel } from "@/lib/constants/document-display";
 import { safeInternalPath } from "@/lib/utils/safe-internal-path";
 import { ProcessDocumentClient } from "./process-document-client";
+import { ValidationSection, type ValidationSectionField } from "./validation-section";
+import { ValidationSummary } from "./validation-summary";
+import { VALIDATION_FIELDS, type ValidationFieldName } from "@/modules/documents/validation-types";
 
 interface DocumentDetailPageProps {
   params: Promise<{ id: string }>;
@@ -31,15 +34,6 @@ interface StoredExtractedData {
   valor?: StoredExtractedField;
   total?: StoredExtractedField;
 }
-
-const FIELD_LABELS: Record<keyof StoredExtractedData, string> = {
-  proveedor: "Proveedor",
-  nit: "NIT",
-  fecha: "Fecha",
-  iva: "IVA",
-  valor: "Valor",
-  total: "Total",
-};
 
 export default async function DocumentDetailPage({
   params,
@@ -79,6 +73,26 @@ export default async function DocumentDetailPage({
     .maybeSingle();
 
   const extractedData = (ocrResult?.extracted_data ?? null) as StoredExtractedData | null;
+
+  // Validación más reciente (Fase 5, RF-007) -- solo se usa cuando el
+  // documento ya está `validated`; document_validations es histórica e
+  // inmutable, así que "la validación actual" es siempre la más reciente
+  // por validated_at, mismo patrón que ocrResult arriba.
+  const { data: latestValidation } = await supabase
+    .from("document_validations")
+    .select("validated_data, original_extracted_data, validated_at")
+    .eq("document_id", doc.id)
+    .order("validated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const validationFields: ValidationSectionField[] = extractedData
+    ? VALIDATION_FIELDS.map((field: ValidationFieldName) => ({
+        field,
+        extractedValue: extractedData[field]?.value ?? null,
+        confidence: extractedData[field]?.confidence ?? 0,
+      }))
+    : [];
 
   await logAuditEvent(supabase, {
     actorId: user.id,
@@ -143,31 +157,17 @@ export default async function DocumentDetailPage({
             </p>
           </div>
 
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="text-xs text-neutral-500 dark:text-neutral-500">
-                <th className="pb-1">Campo</th>
-                <th className="pb-1">Valor</th>
-                <th className="pb-1">Confianza</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(Object.keys(FIELD_LABELS) as Array<keyof StoredExtractedData>).map((key) => {
-                const field = extractedData[key];
-                return (
-                  <tr key={key} className="border-t border-neutral-100 dark:border-neutral-900">
-                    <td className="py-1 text-neutral-500 dark:text-neutral-400">{FIELD_LABELS[key]}</td>
-                    <td className="py-1 text-neutral-900 dark:text-neutral-50">
-                      {field?.value !== null && field?.value !== undefined ? String(field.value) : "—"}
-                    </td>
-                    <td className="py-1 text-neutral-500 dark:text-neutral-400">
-                      {field ? `${(field.confidence * 100).toFixed(0)}%` : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {doc.status === "validated" && latestValidation ? (
+            <ValidationSummary
+              validatedData={latestValidation.validated_data as Partial<Record<ValidationFieldName, unknown>>}
+              originalExtractedData={latestValidation.original_extracted_data as Partial<Record<ValidationFieldName, unknown>>}
+              validatedAt={latestValidation.validated_at}
+            />
+          ) : doc.status === "rejected" ? (
+            <p className="text-sm text-red-600 dark:text-red-400">Documento rechazado — no se valida.</p>
+          ) : (
+            <ValidationSection documentId={doc.id} fields={validationFields} />
+          )}
 
           <details className="text-xs text-neutral-500 dark:text-neutral-500">
             <summary className="cursor-pointer">Texto OCR crudo (debug)</summary>

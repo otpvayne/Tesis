@@ -16,7 +16,7 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 | RF-004 | Almacenar documento original + datos asociados en Supabase | `modules/documents` | esquema: `supabase/migrations/20260811200929_create_documents.sql`; bucket: `supabase/migrations/20260811205322_create_documents_storage_bucket.sql`; subida: `src/modules/documents/actions.ts`, `src/app/(dashboard)/documents/new/page.tsx` | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7, incluye caso ADMIN con sesión real) | VERIFIED |
 | RF-005 | Consultar documentos con filtros (proveedor, fecha, monto, estado) | `modules/documents` | `src/modules/documents/queries.ts`, `src/app/(dashboard)/documents/page.tsx` | `tests/integration/document-filters.test.ts` (7/7 verde) | status/fecha **VERIFIED** con datos reales; proveedor/monto **IMPLEMENTED** (query correcta contra muestra sintética de `ocr_results`, sin datos reales que filtrar hasta RF-002/RF-003 en Fase 4/5 — no es un bug, es orden de fases) |
 | RF-006 | Integración contable (SIIGO u otra) | — | — | — | **DEFERRED** |
-| RF-007 | Validación humana de datos extraídos, con trazabilidad original/validado | `modules/validation` | *(Fase 5)* | *(Fase 5)* | PENDING |
+| RF-007 | Validación humana de datos extraídos, con trazabilidad original/validado | `modules/documents` (validation-logic, save-validation), `app/(dashboard)/documents/[id]` (validation-section, validation-summary), `app/(dashboard)/admin/validation-dashboard` | lógica pura: `tests/unit/modules/documents/validation-logic.test.ts` (13/13); RLS/inmutabilidad contra Supabase real: `tests/integration/document-validations-rls.test.ts` (10/10) | IN_PROGRESS — persistencia y RLS **VERIFIED** contra el proyecto real; interacción de UI (edición inline, colores de confianza, botones) sin verificación automatizada posible en esta sesión (`CLAUDE.md` §11) — pendiente de verificación manual por el equipo, ver checklist de la Fase 5 |
 
 ## Requerimientos no funcionales
 
@@ -400,3 +400,57 @@ requiere que exista dataset real en la partición `test` de `ocr_training_sample
   accuracy/matriz de confusión reales.
 - Comparar contra los objetivos progresivos de `docs/ocr/evaluation.md` §4 (>70% →
   >80% → ≥85% en campos obligatorios).
+
+## Entregables técnicos de Fase 5
+
+| Entregable | Archivo(s) | Prueba | Estado |
+|---|---|---|---|
+| `validation-logic.ts` (`computeConfidenceLevel`, `parseFieldValue`, `buildValidationPayload` — núcleo puro, sin `createClient`/cookies) | `src/modules/documents/validation-logic.ts`, `validation-types.ts` | `tests/unit/modules/documents/validation-logic.test.ts` (13/13, matrices calculadas a mano) | VERIFIED |
+| `save-validation.ts` (`saveValidation`/`rejectDocument`, server actions — `validated_by` sale de la sesión autenticada, nunca de un campo del cliente) | `src/modules/documents/save-validation.ts` | RLS/persistencia real: `tests/integration/document-validations-rls.test.ts` (10/10, contra Supabase real) | VERIFIED (persistencia); wiring de UI sin test automatizado (`CLAUDE.md` §11) |
+| `ValidationSection` (tabla editable: 6 campos, colores de confianza, edición inline, estados ✅/🔧/⏳) + `ValidationSummary` (solo lectura, post-validación) | `src/app/(dashboard)/documents/[id]/{validation-section,validation-summary}.tsx`, integrado en `page.tsx` | `npm run build`/`tsc`/`eslint` sin errores; **interacción real sin verificar** — requiere navegador, prohibido en esta sesión, checklist manual en el cierre de Fase 5 | IMPLEMENTED (no VERIFIED) |
+| Dashboard de validación (prioridad 3): total validados, % con campos editados, campos más corregidos | `src/app/(dashboard)/admin/validation-dashboard/page.tsx` | `npm run build` sin errores; sin datos reales todavía (`document_validations` vacía en producción) | IMPLEMENTED (no VERIFIED) |
+| Migración: `documents.status` acepta `rejected`; `audit_logs.action` acepta `DOCUMENT_REJECTED` (aditivo, sin romper valores existentes) | `supabase/migrations/20260812120000_extend_status_and_audit_for_validation.sql` | aplicada y verificada contra el proyecto real: `tests/integration/document-validations-rls.test.ts` (incluye caso `status='rejected'` y caso de status inválido rechazado) | VERIFIED |
+
+### Decisión técnica: reutilizar `document_validations` en vez de recrearla
+
+El enunciado de esta fase especifica una tabla `document_validations` con
+`manually_edited TEXT[]` y columna `notes` -- pero esa tabla **ya existía** desde el
+bootstrap de Fase 1 (`supabase/migrations/20260811200940_create_document_validations.sql`),
+con `manually_edited boolean` y sin `notes`, ya con RLS de solo select/insert (inmutable,
+sin update/delete) y `AUDIT_ACTIONS` ya anticipando `OCR_VALIDATED`/`OCR_CORRECTED`. Se
+optó por construir sobre el esquema real en vez de alterarlo:
+
+- Qué campo fue corregido se calcula comparando `original_extracted_data` vs
+  `validated_data` (ambas columnas JSONB ya existentes) en vez de mantener un array
+  paralelo que podría desincronizarse.
+- `notes` no se agregó: el enunciado la define en el schema/interfaz pero ningún mockup
+  de UI ni el checklist de prueba la usan -- agregarla habría sido una columna sin
+  ningún lector, justo lo que `CLAUDE.md` §9 pide evitar ("no implementaciones a medio
+  terminar").
+- Sí se agregó (aditivo, sin quitar nada existente) el valor `rejected` a
+  `documents.status` y `DOCUMENT_REJECTED` a `audit_logs.action`, porque el botón
+  "Rechazar documento" del checklist de Fase 5 sí necesita un estado real que
+  persista -- ver migración arriba.
+
+### Qué debe revisar el equipo (pedido explícito de esta fase — checklist manual)
+
+La interacción real de la UI (edición inline, colores de confianza, botones) no se
+puede probar sin navegador en esta sesión (`CLAUDE.md` §11). Checklist para Andres y
+Santiago en `/documents/[id]` después de procesar una factura:
+
+1. Tabla de 6 campos visible con badges de confianza (verde >90%, ámbar 75-90%, rojo
+   <75%).
+2. Campos con confianza >90% arrancan en "✅ OK" sin tocarlos; el resto en
+   "⏳ Pendiente".
+3. Click "Editar" → input aparece; Enter confirma (si el valor coincide con el
+   original, queda "✅ OK"; si es distinto, "🔧 Editado"); "✕" cancela sin guardar.
+4. Un campo numérico (IVA/Valor/Total) con texto no numérico muestra un error inline
+   y no permite confirmar.
+5. "Guardar validación" queda deshabilitado mientras hay una edición sin confirmar.
+6. Tras guardar: la página recarga mostrando `ValidationSummary` (solo lectura, con
+   "(corregido)" junto a los campos que cambiaron) y el estado del documento pasa a
+   "Validado".
+7. "Rechazar documento" cambia el estado a "Rechazado" y oculta la tabla de
+   validación.
+8. `/admin/validation-dashboard` (con un usuario ADMIN) muestra el conteo real después
+   de validar al menos un documento.

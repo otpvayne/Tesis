@@ -54,6 +54,14 @@ export function DashboardNav({ email, role }: DashboardNavProps) {
             Admin: documentos
           </Link>
         ) : null}
+        {isAdmin ? (
+          <Link
+            href="/admin/validation-dashboard"
+            className="hover:text-neutral-900 dark:hover:text-neutral-50"
+          >
+            Admin: validación
+          </Link>
+        ) : null}
       </nav>
     </header>
   );
