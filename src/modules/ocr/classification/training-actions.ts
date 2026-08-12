@@ -1,0 +1,194 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { logAuditEvent } from "@/modules/audit/log";
+import { KNNClassifier } from "@/modules/ocr/classification/knn-classifier";
+import {
+  DATASET_PARTITIONS,
+  type DatasetStats,
+  type LabeledSampleInput,
+  type SaveLabeledSamplesResult,
+  type TrainAndEvaluateResult,
+} from "@/modules/ocr/classification/training-types";
+import type { Json } from "@/types/database";
+
+/**
+ * Único perfil OCR soportado por ahora (`CLAUDE.md` §7: "por ahora solo
+ * `invoice_es`") — no se generaliza a un parámetro hasta que exista un
+ * segundo perfil real que lo justifique.
+ */
+const DOCUMENT_TYPE = "invoice_es";
+
+/** `0-9`, `A-Z`, `a-z` — el alfabeto inicial de `CLAUDE.md` §7. */
+const VALID_LABEL_PATTERN = /^[0-9A-Za-z]$/;
+
+async function requireAdmin() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("No autenticado.");
+  }
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (profile?.role !== "ADMIN") {
+    throw new Error("Solo ADMIN puede usar OCR LAB Training.");
+  }
+
+  return { supabase, userId: user.id };
+}
+
+/**
+ * Lee todas las muestras de `document_type` y agrega en memoria — el
+ * dataset es pequeño en esta fase (sin datos reales todavía, Fase 4d lo
+ * llena). Si el volumen crece lo suficiente para que esto importe, se
+ * reemplaza por una agregación real en SQL (`group by`), no antes.
+ */
+export async function getDatasetStats(): Promise<DatasetStats> {
+  const { supabase } = await requireAdmin();
+
+  const { data, error } = await supabase
+    .from("ocr_training_samples")
+    .select("label, dataset_partition")
+    .eq("document_type", DOCUMENT_TYPE);
+
+  if (error) {
+    throw new Error(`No se pudo leer el dataset: ${error.message}`);
+  }
+
+  const byLabel: Record<string, number> = {};
+  const byPartition: Record<string, number> = {};
+  for (const row of data ?? []) {
+    byLabel[row.label] = (byLabel[row.label] ?? 0) + 1;
+    byPartition[row.dataset_partition] = (byPartition[row.dataset_partition] ?? 0) + 1;
+  }
+
+  return { total: data?.length ?? 0, byLabel, byPartition };
+}
+
+export async function saveLabeledSamples(samples: LabeledSampleInput[]): Promise<SaveLabeledSamplesResult> {
+  const { supabase } = await requireAdmin();
+
+  if (samples.length === 0) {
+    return { saved: 0 };
+  }
+
+  for (const sample of samples) {
+    if (!VALID_LABEL_PATTERN.test(sample.label)) {
+      throw new Error(`Label inválida: "${sample.label}" (debe ser un solo carácter 0-9/A-Z/a-z).`);
+    }
+    if (!DATASET_PARTITIONS.includes(sample.partition)) {
+      throw new Error(`Partición inválida: "${sample.partition}".`);
+    }
+  }
+
+  const rows = samples.map((sample) => ({
+    document_type: DOCUMENT_TYPE,
+    label: sample.label,
+    dataset_partition: sample.partition,
+    feature_data: { descriptor: sample.descriptor, sourceDocument: sample.sourceDocument } as Json,
+  }));
+
+  const { error } = await supabase.from("ocr_training_samples").insert(rows);
+  if (error) {
+    throw new Error(`No se pudieron guardar las muestras: ${error.message}`);
+  }
+
+  revalidatePath("/ocr-lab/train");
+  return { saved: rows.length };
+}
+
+/**
+ * Entrena un kNN sobre la partición `train` y evalúa sobre `test`
+ * (`validation` no se toca aquí — se reserva para calibrar `k`/`epsilon`
+ * en Fase 4d, no para medir accuracy). `test` nunca participa del
+ * entrenamiento (`CLAUDE.md` §7/§10).
+ *
+ * kNN es "lazy": no hay pesos que ajustar, el "modelo entrenado" es
+ * literalmente el conjunto de muestras. `model_data` persiste
+ * `{ descriptors, labels }` tal cual — suficiente para reconstruir el
+ * `KNNClassifier` sin re-extraer HOG.
+ */
+export async function trainAndEvaluateModel(): Promise<TrainAndEvaluateResult> {
+  const { supabase } = await requireAdmin();
+
+  const { data, error } = await supabase
+    .from("ocr_training_samples")
+    .select("label, dataset_partition, feature_data")
+    .eq("document_type", DOCUMENT_TYPE);
+
+  if (error) {
+    throw new Error(`No se pudo leer el dataset: ${error.message}`);
+  }
+
+  const rows = data ?? [];
+  const trainRows = rows.filter((row) => row.dataset_partition === "train");
+  const testRows = rows.filter((row) => row.dataset_partition === "test");
+
+  if (trainRows.length === 0) {
+    throw new Error("No hay muestras en la partición 'train' todavía — etiqueta y guarda caracteres primero.");
+  }
+
+  const toDescriptor = (featureData: Json): Float32Array => {
+    const parsed = featureData as { descriptor?: number[] };
+    if (!Array.isArray(parsed.descriptor)) {
+      throw new Error("Una muestra tiene feature_data corrupto (sin 'descriptor').");
+    }
+    return new Float32Array(parsed.descriptor);
+  };
+
+  const knn = new KNNClassifier();
+  knn.train(
+    trainRows.map((row) => toDescriptor(row.feature_data)),
+    trainRows.map((row) => row.label),
+  );
+
+  let accuracy: number | null = null;
+  if (testRows.length > 0) {
+    let correct = 0;
+    for (const row of testRows) {
+      const prediction = knn.predict(toDescriptor(row.feature_data));
+      if (prediction.label === row.label) correct++;
+    }
+    accuracy = correct / testRows.length;
+  }
+
+  const classes = new Set(trainRows.map((row) => row.label)).size;
+  const version = new Date().toISOString();
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("ocr_models")
+    .insert({
+      document_type: DOCUMENT_TYPE,
+      version,
+      active: false,
+      model_data: {
+        descriptors: trainRows.map((row) => Array.from(toDescriptor(row.feature_data))),
+        labels: trainRows.map((row) => row.label),
+      } as Json,
+      metrics: { accuracy, trainCount: trainRows.length, testCount: testRows.length, classes } as Json,
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !inserted) {
+    throw new Error(`No se pudo guardar el modelo: ${insertError?.message ?? "sin fila devuelta"}`);
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    await logAuditEvent(supabase, {
+      actorId: user.id,
+      action: "MODEL_TRAINED",
+      metadata: { document_type: DOCUMENT_TYPE, version, accuracy, trainCount: trainRows.length, testCount: testRows.length },
+    });
+  }
+
+  revalidatePath("/ocr-lab/train");
+
+  return { trainCount: trainRows.length, testCount: testRows.length, classes, accuracy, modelId: inserted.id };
+}

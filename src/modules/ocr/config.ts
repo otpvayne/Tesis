@@ -87,4 +87,64 @@ export const OCR_CONFIG = {
    * legítimamente enorme.
    */
   CHAR_MAX_HEIGHT: 200,
+
+  /**
+   * Columnas/filas de la grilla de regiones que usa `extractHOG` (Fase 4c)
+   * para dividir el carácter normalizado (`CHAR_SIZE × CHAR_SIZE`) antes de
+   * construir el histograma de orientaciones por región.
+   *
+   * El diseño original propuesto (celdas de 4px + bloques de 2×2 celdas con
+   * solape del 50%, igual que HOG clásico) da 8×8=64 celdas y, con solape,
+   * 7×7=49 bloques × (2×2 celdas × `HOG_ORIENTATION_BINS`=9) = 1764
+   * valores — matemáticamente correcto (verificable a mano), pero de ahí no
+   * hay ninguna reducción *limpia* a 108: 1764 no es divisible por un
+   * número de grupos que dé una grilla entera, y 108/9=12 regiones
+   * tampoco factoriza en potencias de 2 (los únicos divisores enteros de
+   * 32px). Construir el HOG completo de 1764-dim solo para descartarlo con
+   * un sub-muestreo arbitrario habría sido complejidad sin uso real. En su
+   * lugar, `extractHOG` divide la imagen directamente en una grilla de
+   * `HOG_GRID_COLS × HOG_GRID_ROWS` = 4×3 = 12 regiones (límites por
+   * `Math.floor`, deterministas — columnas de 8px exactos, filas de
+   * ~10-11px), cada una con su propio histograma de 9 bins normalizado
+   * L2 — mismo total de 108 = 12×9 que pedía el diseño original, mismas
+   * fórmulas de gradiente/orientación, sin la etapa de bloques con solape
+   * (que no aporta valor aquí al no alimentar una reducción de dimensión
+   * real). Ver razón completa en `docs/ocr/algorithms.md` §12.
+   */
+  HOG_GRID_COLS: 4,
+  HOG_GRID_ROWS: 3,
+
+  /**
+   * Bins del histograma de orientación de gradiente por región de HOG,
+   * cubriendo `[0°, 180°)` en incrementos de 20° (gradiente "sin signo":
+   * una línea a 10° y una a 190° representan el mismo trazo). Valor
+   * estándar en la literatura de HOG (Dalal & Triggs, 2005) para
+   * reconocimiento de formas simples.
+   */
+  HOG_ORIENTATION_BINS: 9,
+
+  /**
+   * Estabilidad numérica al normalizar L2 el histograma de cada región de
+   * HOG (`normalizado = histograma / (norma + epsilon)`) — evita división
+   * por cero en una región sin ningún gradiente (ej. carácter que no toca
+   * esa zona del lienzo 32×32).
+   */
+  HOG_EPSILON: 0.001,
+
+  /**
+   * `k` (número de vecinos) por defecto para `KNNClassifier.predict`. 3 es
+   * un punto de partida estándar en la literatura (impar, evita empates en
+   * problemas binarios; lo bastante bajo para no diluir clases con pocas
+   * muestras en el dataset inicial de Fase 4d). Se recalibra con el
+   * conjunto `validation` una vez exista dataset real — nunca con `test`.
+   */
+  KNN_K: 3,
+
+  /**
+   * Estabilidad numérica al ponderar el voto de un vecino por
+   * `1 / (distancia + epsilon)` en `KNNClassifier` — evita división por
+   * cero cuando la muestra de test coincide exactamente con una de
+   * entrenamiento (distancia euclidiana = 0).
+   */
+  KNN_EPSILON: 0.001,
 } as const;
