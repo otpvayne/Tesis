@@ -26,6 +26,21 @@ export const OCR_CONFIG = {
   CHAR_SIZE: 32,
 
   /**
+   * Si el paso de denoise (`preprocessing/denoise.ts`, filtro de mediana)
+   * se aplica antes de segmentar. Desactivado temporalmente: el kernel 3×3
+   * por defecto erosiona trazos de 1px de ancho (letras pequeñas, serifs)
+   * — un píxel de un trazo delgado rodeado mayormente de fondo en su
+   * vecindad 3×3 puede perder la votación de mediana y desaparecer,
+   * destruyendo el carácter en vez de limpiar ruido. Se deja en `false`
+   * hasta calibrar un kernel/técnica que no erosione texto pequeño (ver
+   * limitación documentada en `denoise.ts`) — no se elimina la función,
+   * solo se deja de invocar por defecto. En `OcrPreviewClient` (OCR LAB)
+   * el paso ya era un botón manual opcional; este flag documenta la
+   * decisión para cuando exista un pipeline automático real (RF-002).
+   */
+  APPLY_DENOISE: false,
+
+  /**
    * Una fila de la proyección horizontal con menos píxeles blancos que
    * este valor se considera un "valle" (espacio entre líneas de texto),
    * no parte de una línea.

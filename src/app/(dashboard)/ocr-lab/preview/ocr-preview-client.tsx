@@ -258,11 +258,22 @@ export function OcrPreviewClient() {
                 min={3}
                 step={2}
                 value={kernelSize}
+                disabled={!OCR_CONFIG.APPLY_DENOISE}
                 onChange={(e) => setKernelSize(Math.max(3, Number(e.target.value) || 3))}
-                className="w-14 rounded-md border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-950"
+                className="w-14 rounded-md border border-neutral-300 px-2 py-1 disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-950"
               />
             </label>
-            <button type="button" onClick={handleDenoise} className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200">
+            <button
+              type="button"
+              onClick={handleDenoise}
+              disabled={!OCR_CONFIG.APPLY_DENOISE}
+              title={
+                OCR_CONFIG.APPLY_DENOISE
+                  ? undefined
+                  : "Desactivado: OCR_CONFIG.APPLY_DENOISE = false (el kernel 3×3 erosiona trazos delgados, ver modules/ocr/preprocessing/denoise.ts)"
+              }
+              className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-200"
+            >
               Denoise
             </button>
             <button type="button" onClick={handleSegment} className="rounded-md border border-sky-500 px-3 py-2 text-sm font-medium text-sky-700 dark:border-sky-400 dark:text-sky-300">

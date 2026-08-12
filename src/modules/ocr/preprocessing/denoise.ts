@@ -17,6 +17,15 @@ import { createImageData } from "@/modules/ocr/preprocessing/create-image-data";
  * Bordes de la imagen: se resuelven por replicación (el vecino fuera de
  * los límites toma el valor del píxel de borde más cercano) — no hay
  * franja de padding artificial que pudiera introducir ruido falso.
+ *
+ * **Limitación conocida (Fase 4b):** la mediana "vota por mayoría" en toda
+ * la vecindad, no solo contra ruido aislado. Un trazo de 1px de ancho
+ * (letra pequeña, serif) donde la mayoría de los 9 vecinos son fondo
+ * también pierde la votación y se borra — el filtro no distingue "píxel
+ * de ruido aislado" de "trazo delgado real". Por eso `OCR_CONFIG.APPLY_DENOISE`
+ * está en `false` por defecto hasta calibrar un kernel o técnica
+ * (ej. mediana condicionada al tamaño del trazo, o apertura morfológica)
+ * que no erosione texto pequeño real.
  */
 export function denoise(imageData: ImageData, kernelSize: number = 3): ImageData {
   const { data, width, height } = imageData;
