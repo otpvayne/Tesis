@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getDocumentById } from "@/modules/documents/queries";
@@ -6,15 +7,26 @@ import { deleteDocument } from "@/modules/documents/actions";
 import { DOCUMENTS_STORAGE_BUCKET } from "@/modules/documents/types";
 import { formatDateTime } from "@/lib/utils/format-date";
 import { getDocumentStatusLabel, getDocumentTypeLabel } from "@/lib/constants/document-display";
+import { safeInternalPath } from "@/lib/utils/safe-internal-path";
 
 interface DocumentDetailPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ back?: string }>;
 }
 
 const SIGNED_URL_TTL_SECONDS = 60 * 5;
 
-export default async function DocumentDetailPage({ params }: DocumentDetailPageProps) {
+export default async function DocumentDetailPage({
+  params,
+  searchParams,
+}: DocumentDetailPageProps) {
   const { id } = await params;
+  const { back } = await searchParams;
+  // ?back= lo llenan documents/page.tsx y admin/documents/page.tsx con su
+  // vista actual (filtros/página incluidos) para que "Volver" regrese
+  // exactamente ahí. Es entrada del cliente (query param) — se valida
+  // antes de usarla como destino de navegación (RNF-003).
+  const backHref = safeInternalPath(back, "/documents");
   const supabase = await createClient();
   const {
     data: { user },
@@ -38,6 +50,13 @@ export default async function DocumentDetailPage({ params }: DocumentDetailPageP
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
+      <Link
+        href={backHref}
+        className="-mx-2 flex items-center gap-1 self-start rounded-md px-2 py-3 text-sm font-medium text-neutral-600 active:bg-neutral-100 dark:text-neutral-400 dark:active:bg-neutral-800"
+      >
+        ← Volver
+      </Link>
+
       <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">Documento</h1>
 
       {signedError || !signed ? (

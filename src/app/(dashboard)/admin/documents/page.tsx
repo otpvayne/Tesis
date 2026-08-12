@@ -24,6 +24,16 @@ export default async function AdminDocumentsPage({ searchParams }: AdminDocument
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page ?? "1") || 1);
 
+  // Vista actual (con filtros/página) para que el botón "Volver" del
+  // detalle regrese aquí en vez de a /documents (la lista propia del
+  // usuario, que para un ADMIN no es lo mismo que esta vista global).
+  const currentViewParams = new URLSearchParams();
+  if (sp.status) currentViewParams.set("status", sp.status);
+  if (sp.dateFrom) currentViewParams.set("dateFrom", sp.dateFrom);
+  if (sp.dateTo) currentViewParams.set("dateTo", sp.dateTo);
+  currentViewParams.set("page", String(page));
+  const currentViewHref = `/admin/documents?${currentViewParams.toString()}`;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -71,7 +81,7 @@ export default async function AdminDocumentsPage({ searchParams }: AdminDocument
           {items.map((doc) => (
             <li key={doc.id}>
               <Link
-                href={`/documents/${doc.id}`}
+                href={`/documents/${doc.id}?back=${encodeURIComponent(currentViewHref)}`}
                 className="flex items-center justify-between px-4 py-3 text-sm"
               >
                 <span className="text-neutral-900 dark:text-neutral-50">

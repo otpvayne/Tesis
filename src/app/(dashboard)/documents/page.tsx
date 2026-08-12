@@ -32,6 +32,9 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page ?? "1") || 1);
   const status = isDocumentStatus(sp.status) ? sp.status : undefined;
+  // Vista actual (con filtros/página) para que el botón "Volver" del
+  // detalle regrese exactamente aquí, no a /documents sin filtros.
+  const currentViewHref = buildHref(sp, page);
 
   const supabase = await createClient();
   const {
@@ -103,7 +106,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
           {result.items.map((doc) => (
             <li key={doc.id}>
               <Link
-                href={`/documents/${doc.id}`}
+                href={`/documents/${doc.id}?back=${encodeURIComponent(currentViewHref)}`}
                 className="flex items-center justify-between px-4 py-3 text-sm"
               >
                 <span className="text-neutral-900 dark:text-neutral-50">
