@@ -5,11 +5,12 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 4a — Preprocesamiento OCR.** Pipeline propio (grayscale,
-> normalización, histograma, Otsu, filtro de mediana) implementado y probado con 42
-> unit tests. Ruta de desarrollo `/ocr-lab/preview` (solo ADMIN) para ver el
-> preprocesamiento sobre una imagen real — sin verificar visualmente todavía. Segmentación,
-> clasificación y extracción de campos siguen pendientes (Fase 4b en adelante). Ver
+> Estado actual: **Fase 4b — Segmentación OCR.** Pipeline propio completo hasta
+> caracteres normalizados: preprocesamiento (Fase 4a) + componentes conectados,
+> líneas/palabras/caracteres, corrección de polaridad texto/fondo y normalización
+> (Fase 4b), 82 unit tests. `/ocr-lab/preview` (solo ADMIN) ahora también segmenta y
+> muestra el resultado — sin verificar visualmente todavía. Clasificación,
+> entrenamiento y extracción de campos siguen pendientes (Fase 4c en adelante). Ver
 > [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Equipo
