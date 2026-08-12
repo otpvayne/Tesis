@@ -10,6 +10,20 @@ describe("validateCaptureResolution", () => {
     expect(validateCaptureResolution(MIN_CAPTURE_WIDTH, MIN_CAPTURE_HEIGHT).ok).toBe(true);
   });
 
+  // Valores literales (no derivados de las constantes) a propósito: si el
+  // piso vuelve a cambiar, este test debe fallar de forma visible en vez
+  // de moverse solo junto con la constante.
+  it("640×480px pasa la validación", () => {
+    expect(validateCaptureResolution(640, 480).ok).toBe(true);
+  });
+
+  it("639×480px NO pasa la validación (un píxel por debajo del ancho mínimo)", () => {
+    const result = validateCaptureResolution(639, 480);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("640");
+    expect(result.reason).toContain("480");
+  });
+
   it("acepta una resolución típica de cámara trasera moderna", () => {
     expect(validateCaptureResolution(4032, 3024).ok).toBe(true);
   });
