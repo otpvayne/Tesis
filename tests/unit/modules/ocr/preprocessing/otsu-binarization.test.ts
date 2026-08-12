@@ -88,4 +88,28 @@ describe("otsuBinarization", () => {
     expect(result.width).toBe(3);
     expect(result.height).toBe(2);
   });
+
+  it("thresholdMultiplier=1 (por defecto) no cambia el resultado de la fórmula original", () => {
+    const input = createImageData(grayPixels([0, 0, 100, 200]), 4, 1);
+    const withoutMultiplier = otsuBinarization(input);
+    const withDefaultMultiplier = otsuBinarization(input, undefined, 1);
+    expect(withDefaultMultiplier.data).toEqual(withoutMultiplier.data);
+  });
+
+  it("thresholdMultiplier > 1 sube el corte y reclasifica píxeles al límite como fondo (0)", () => {
+    // threshold base = 51 (a mano, ver test "elige el umbral..." arriba:
+    // el empate de varianza cubre t=1..100, punto medio = 51). Con
+    // multiplier=2, threshold efectivo = 102: el píxel de valor 100 (que
+    // con threshold=51 caía en la clase alta, 255) ahora cae por debajo
+    // de 102 y pasa a la clase baja (0) -- el pixel de 200 se mantiene.
+    const input = createImageData(grayPixels([0, 0, 100, 200]), 4, 1);
+    const base = computeOtsuThreshold(input);
+    expect(base).toBe(51);
+
+    const result = otsuBinarization(input, undefined, 2);
+    expect(result.data[0]).toBe(0);
+    expect(result.data[4]).toBe(0);
+    expect(result.data[8]).toBe(0); // antes 255 con threshold=51
+    expect(result.data[12]).toBe(255);
+  });
 });

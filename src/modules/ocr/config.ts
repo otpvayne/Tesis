@@ -26,16 +26,41 @@ export const OCR_CONFIG = {
   CHAR_SIZE: 32,
 
   /**
+   * Si el paso de denoise (`preprocessing/denoise.ts`, filtro de mediana)
+   * se aplica antes de segmentar. Desactivado temporalmente: el kernel 3×3
+   * por defecto erosiona trazos de 1px de ancho (letras pequeñas, serifs)
+   * — un píxel de un trazo delgado rodeado mayormente de fondo en su
+   * vecindad 3×3 puede perder la votación de mediana y desaparecer,
+   * destruyendo el carácter en vez de limpiar ruido. Se deja en `false`
+   * hasta calibrar un kernel/técnica que no erosione texto pequeño (ver
+   * limitación documentada en `denoise.ts`) — no se elimina la función,
+   * solo se deja de invocar por defecto. En `OcrPreviewClient` (OCR LAB)
+   * el paso ya era un botón manual opcional; este flag documenta la
+   * decisión para cuando exista un pipeline automático real (RF-002).
+   */
+  APPLY_DENOISE: false,
+
+  /**
    * Una fila de la proyección horizontal con menos píxeles blancos que
    * este valor se considera un "valle" (espacio entre líneas de texto),
-   * no parte de una línea. 5 es deliberadamente bajo: una línea de texto
-   * real casi siempre tiene bastantes más de 5 píxeles blancos en su fila
-   * más delgada, así que este umbral solo filtra ruido residual (algún
-   * píxel aislado que el denoise de Fase 4a no eliminó), no arriesga
-   * cortar una línea real en dos. Subirlo demasiado sí puede partir
-   * líneas con poco contraste.
+   * no parte de una línea.
+   *
+   * Subido de 5 a 10 (bug real de Fase 4b: una foto de factura encontró 1
+   * sola línea en vez de ~20-30). Causa confirmada con un test de
+   * diagnóstico sintético: en documentos con estructura (líneas de borde
+   * de tabla que atraviesan todo el bloque de texto, o ruido residual que
+   * el denoise 3×3 no elimina por completo) las filas "valle" entre
+   * líneas de texto no quedan en 0 — tienen un piso de ruido constante que
+   * con threshold=5 ya alcanzaba a clasificarse como fila de texto, fusionando
+   * todas las líneas en una sola región. Bajar el threshold (como se
+   * consideró inicialmente) empeora esto: hace aún más fácil que una fila
+   * de ruido pase el corte. Subirlo por encima del piso de ruido es lo que
+   * separa las líneas correctamente. 10 es un punto de partida que
+   * despejó el caso sintético (líneas de borde + ruido disperso); no es un
+   * valor medido contra facturas reales de Mansor — se recalibra en Fase
+   * 4d con dataset real si hace falta.
    */
-  HORIZONTAL_VALLEY_THRESHOLD: 5,
+  HORIZONTAL_VALLEY_THRESHOLD: 10,
 
   /**
    * Igual que el anterior pero para la proyección vertical dentro de una

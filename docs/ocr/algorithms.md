@@ -139,6 +139,47 @@ Caso degenerado (imagen completamente uniforme, un solo valor de gris): no exist
 medio del rango) como valor neutral — verificado en `otsu-binarization.test.ts` y no
 provoca error ni división por cero.
 
+### `thresholdMultiplier` (escape hatch experimental, Fase 4b)
+
+`otsuBinarization` acepta un tercer parámetro opcional `thresholdMultiplier` (por
+defecto `1`, sin efecto sobre la fórmula de arriba). Con fotos reales donde ruido o
+iluminación despareja hacen que el threshold automático clasifique demasiado fondo como
+"texto" (ver bug real documentado en el panel de diagnóstico de OCR LAB), permite mover
+el corte a mano para calibración manual mientras se junta evidencia suficiente para una
+corrección automática (ej. contraste adaptativo por región, Fase 4d). **No es parte de
+la fórmula de Otsu** — subirlo mueve más píxeles de fondo hacia la clase oscura
+(potencialmente empeorando la contaminación de ruido, no mejorándola — la dirección
+correcta depende de dónde cae el histograma real, se determina empíricamente por
+imagen, no se asume). Verificado en `otsu-binarization.test.ts` con un ejemplo a mano.
+
+## 4b. Suavizado Gaussiano pre-Otsu — `gaussian-blur.ts` (Fase 4b, implementado)
+
+Aplicado sobre la imagen en escala de grises, **antes** de `otsuBinarization` — a
+diferencia del filtro de mediana de la sección 5, que opera después, sobre la salida ya
+binaria. Kernel fijo 3×3 (no crece con `sigma`, por la misma razón que el filtro de
+mediana se mantiene pequeño: un kernel más grande difuminaría de más un carácter
+pequeño):
+
+```
+peso(dx, dy) = e^(-(dx² + dy²) / (2·sigma²)),  dx, dy ∈ {-1, 0, 1}
+kernel(dx, dy) = peso(dx, dy) / Σ peso
+
+salida(x, y) = Σ_{dx,dy} entrada(x+dx, y+dy) · kernel(dx, dy)
+```
+
+Bordes: replicación (igual que `denoise.ts`). Ejemplo verificado en
+`gaussian-blur.test.ts`: con `sigma=1`, peso central `1/4.8976 ≈ 0.2042`, ortogonal
+`e^-0.5/4.8976 ≈ 0.1238`, esquina `e^-1/4.8976 ≈ 0.0751`.
+
+**Por qué Gaussiano aquí y mediana en la sección 5, no el mismo filtro en ambos
+lugares:** operar sobre valores continuos (0-255) es precisamente el caso donde un
+filtro Gaussiano no rompe nada (no hay binariedad que preservar todavía). Promedia
+ruido de alta frecuencia (grano de sensor, artefactos JPEG) sin la votación "todo o
+nada" de la mediana: un trazo delgado se atenúa en los bordes pero su centro sigue
+siendo lo bastante oscuro para cruzar el threshold de Otsu, en vez de desaparecer por
+completo — el problema real que llevó a desactivar `denoise` (`OCR_CONFIG.APPLY_DENOISE`,
+ver sección 5).
+
 ## 5. Reducción de ruido — filtro de mediana — `denoise.ts` (Fase 4a, implementado)
 
 Para cada píxel, se reemplaza su valor por la **mediana** (no el promedio) de sus
@@ -238,7 +279,11 @@ umbral; una corrida contigua de filas/columnas que NO son valle es una región d
 contenido (línea de texto, o palabra dentro de una línea). Dos umbrales distintos,
 documentados con su razón en `modules/ocr/config.ts`:
 
-- `HORIZONTAL_VALLEY_THRESHOLD = 5` — separa líneas de texto entre sí.
+- `HORIZONTAL_VALLEY_THRESHOLD = 10` — separa líneas de texto entre sí. Subido de 5 a
+  10 tras un bug real (Fase 4b): con 5, filas "valle" en documentos con estructura
+  (bordes de tabla que atraviesan todo el bloque de texto, ruido residual no
+  eliminado por el denoise 3×3) alcanzaban el umbral y fusionaban todas las líneas
+  en una sola región. Ver razón completa en `modules/ocr/config.ts`.
 - `VERTICAL_VALLEY_THRESHOLD = 2` — separa palabras dentro de una línea, más bajo a
   propósito porque el espacio entre letras de una misma palabra también genera
   columnas con pocos píxeles.

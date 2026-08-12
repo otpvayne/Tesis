@@ -64,11 +64,21 @@ export function computeOtsuThreshold(imageData: ImageData, histogram?: ImageHist
 
 /**
  * Binariza una imagen en escala de grises usando el threshold de Otsu:
- * `píxel' = píxel >= threshold ? 255 : 0`.
+ * `píxel' = píxel >= threshold*thresholdMultiplier ? 255 : 0`.
+ *
+ * `thresholdMultiplier` (por defecto `1`, sin efecto — preserva el
+ * threshold óptimo de Otsu tal cual) es una vía de escape **experimental**
+ * para calibración manual en OCR LAB (Fase 4b/4d): ante fotos reales con
+ * ruido/sombra que hacen que el threshold automático clasifique demasiado
+ * fondo como "texto" tras `ensureTextIsForeground`, permite mover el corte
+ * a mano mientras se recolecta evidencia suficiente para automatizar la
+ * corrección (ej. contraste adaptativo por región). No es parte de la
+ * fórmula de Otsu documentada en `docs/ocr/algorithms.md` §4 — es una
+ * herramienta de diagnóstico, no un valor calibrado.
  */
-export function otsuBinarization(imageData: ImageData, histogram?: ImageHistogram): ImageData {
+export function otsuBinarization(imageData: ImageData, histogram?: ImageHistogram, thresholdMultiplier: number = 1): ImageData {
   const { data, width, height } = imageData;
-  const threshold = computeOtsuThreshold(imageData, histogram);
+  const threshold = computeOtsuThreshold(imageData, histogram) * thresholdMultiplier;
 
   const output = new Uint8ClampedArray(data.length);
   for (let i = 0; i < data.length; i += 4) {
