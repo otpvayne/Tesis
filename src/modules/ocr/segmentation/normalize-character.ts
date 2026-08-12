@@ -20,9 +20,15 @@ import type { CharacterRegion } from "@/modules/ocr/segmentation/extract-charact
  * 3. El resultado se centra en el lienzo `targetSize × targetSize`, con
  *    el margen sobrante relleno en negro (mismo fondo que ya usa
  *    `extractCharactersFromWord`).
+ *
+ * Solo usa `width`/`height`/`pixels` de `charRegion` — tipado como
+ * `Pick<CharacterRegion, ...>` (no `CharacterRegion` completo) para que
+ * también lo pueda reusar `dataset-synthesizer.ts` (Fase 4d), que no tiene
+ * un `Component` real (el carácter sintético no viene de segmentar un
+ * documento, viene de renderizar una fuente).
  */
 export function normalizeCharacter(
-  charRegion: CharacterRegion,
+  charRegion: Pick<CharacterRegion, "width" | "height" | "pixels">,
   targetSize: number = OCR_CONFIG.CHAR_SIZE,
 ): ImageData {
   const { width, height, pixels } = charRegion;

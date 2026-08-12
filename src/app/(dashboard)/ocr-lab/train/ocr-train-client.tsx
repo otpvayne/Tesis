@@ -20,6 +20,7 @@ import {
 } from "@/modules/ocr/classification/training-actions";
 import { DATASET_PARTITIONS, type DatasetPartition, type DatasetStats, type TrainAndEvaluateResult } from "@/modules/ocr/classification/training-types";
 import { CharacterThumbnail } from "@/app/(dashboard)/ocr-lab/_components/canvas-utils";
+import { SyntheticTrainingPanel } from "./synthetic-training-panel";
 
 /** `0-9`, `A-Z`, `a-z` — mismo alfabeto que valida `training-actions.ts` (`CLAUDE.md` §7). */
 const LABEL_OPTIONS = [
@@ -237,6 +238,8 @@ export function OcrTrainClient({ initialStats }: { initialStats: DatasetStats })
           </p>
         ) : null}
       </div>
+
+      <SyntheticTrainingPanel />
     </div>
   );
 }

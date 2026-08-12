@@ -148,3 +148,71 @@ export const OCR_CONFIG = {
    */
   KNN_EPSILON: 0.001,
 } as const;
+
+/**
+ * Parámetros de síntesis y entrenamiento (Fase 4d) — separados de
+ * `OCR_CONFIG` porque son parámetros del *proceso de generar/entrenar* un
+ * modelo, no del pipeline de reconocimiento en sí (que es lo que
+ * `OCR_CONFIG` gobierna en tiempo de ejecución real). Ningún valor aquí es
+ * medido — son puntos de partida para el dataset sintético; se recalibran
+ * cuando exista dataset real (facturas de Mansor vía OCR LAB).
+ */
+export const OCR_TRAINING_CONFIG = {
+  /**
+   * Muestras sintéticas a generar por carácter. `62 × 160 = 9920` ≈ 10,000
+   * (62 = 10 dígitos + 26 mayúsculas + 26 minúsculas, el alfabeto de
+   * `CLAUDE.md` §7).
+   */
+  SYNTHETIC_SAMPLES_PER_CHARACTER: 160,
+
+  /**
+   * Fuentes usadas para renderizar los caracteres base antes de distorsionar.
+   * Dependen de qué fuentes tenga instaladas el sistema/navegador donde
+   * corre la síntesis (Canvas 2D `ctx.font`, sin control total sobre el
+   * fallback) — no hay garantía de que las 4 rindan visualmente distintas
+   * en cualquier máquina; es una limitación aceptada, no un bug.
+   */
+  SYNTHETIC_FONTS: ["Arial", "Times New Roman", "Courier New", "Helvetica"],
+
+  /** Rotación aleatoria aplicada a cada muestra, en grados, rango `[-N, N]`. */
+  DISTORTION_ROTATION_RANGE: 5,
+
+  /** Escala aleatoria aplicada a cada muestra, proporción `[1-N, 1+N]` (`0.1` = ±10%). */
+  DISTORTION_SCALE_RANGE: 0.1,
+
+  /**
+   * Probabilidad por píxel de invertir su valor (ruido "sal y pimienta").
+   * `0.05` = 5% de los píxeles del carácter distorsionado quedan invertidos.
+   */
+  DISTORTION_NOISE_LEVEL: 0.05,
+
+  /**
+   * Desplazamiento máximo (px) del shear afín aplicado a cada muestra,
+   * rango `[-N, N]`. Nota: en un lienzo de 32×32 (`OCR_CONFIG.CHAR_SIZE`),
+   * ±10px es un shear agresivo (~31% del ancho) — se deja el valor pedido
+   * explícitamente, pero es candidato a bajar si el equipo observa
+   * caracteres irreconocibles al inspeccionar el dataset sintético
+   * generado (verificación manual, ver `docs/ocr/training.md`).
+   */
+  DISTORTION_SKEW_RANGE: 10,
+
+  /** Proporción del dataset sintético usada para entrenar (el resto, para medir accuracy) — split estratificado por label, ver `Dataset.split`. */
+  TRAIN_TEST_SPLIT: 0.8,
+
+  /**
+   * `k` para el entrenamiento/evaluación de esta fase. Igual a
+   * `OCR_CONFIG.KNN_K` por referencia (no un número separado) para que no
+   * puedan desincronizarse — es conceptualmente el mismo parámetro, usado
+   * tanto en tiempo real como al evaluar el modelo sintético.
+   */
+  KNN_K: OCR_CONFIG.KNN_K,
+
+  /**
+   * Si el accuracy medido en la partición de evaluación cae por debajo de
+   * esto, `trainModel` reporta `generalizationWarning` — una señal de que
+   * el dataset sintético o los parámetros de distorsión no están
+   * generando muestras aprendibles, no una afirmación sobre el modelo
+   * final (que se mide con `test` real, Fase 4f).
+   */
+  MIN_ACCURACY_THRESHOLD: 0.8,
+} as const;

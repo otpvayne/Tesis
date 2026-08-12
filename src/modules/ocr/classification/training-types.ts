@@ -27,3 +27,20 @@ export interface TrainAndEvaluateResult {
   accuracy: number | null;
   modelId: string;
 }
+
+export interface SaveSyntheticModelInput {
+  /** `serializeModel(classifier)` — el entrenamiento (fuentes+distorsiones+HOG+kNN) corre en el navegador, ver `dataset-synthesizer.ts`. */
+  modelJson: string;
+  metrics: {
+    accuracy: number | null;
+    trainCount: number;
+    testCount: number;
+    classes: number;
+    trainingTimeMs: number;
+  };
+}
+
+export interface SaveSyntheticModelResult {
+  modelId: string;
+  version: string;
+}

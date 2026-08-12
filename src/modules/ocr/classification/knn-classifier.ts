@@ -53,8 +53,27 @@ export interface KNNPrediction {
  * llevó la clase ganadora — `1` si todos los vecinos coinciden,
  * `→ 1/(clases distintas entre los vecinos)` en el caso más disperso.
  */
+export interface SerializedKNNClassifier {
+  samples: Array<{ descriptor: number[]; label: string }>;
+}
+
 export class KNNClassifier {
   private samples: TrainedSample[] = [];
+
+  /** Serializa las muestras memorizadas (kNN es "lazy": el modelo *es* el conjunto de muestras, no hay pesos separados que ajustar) a una forma JSON-compatible. */
+  toJSON(): SerializedKNNClassifier {
+    return { samples: this.samples.map((sample) => ({ descriptor: Array.from(sample.descriptor), label: sample.label })) };
+  }
+
+  /** Reconstruye un `KNNClassifier` desde `toJSON()` (o desde JSON parseado con esa forma) — equivalente a llamar `train()` con las mismas muestras. */
+  static fromJSON(data: SerializedKNNClassifier): KNNClassifier {
+    const classifier = new KNNClassifier();
+    classifier.train(
+      data.samples.map((sample) => new Float32Array(sample.descriptor)),
+      data.samples.map((sample) => sample.label),
+    );
+    return classifier;
+  }
 
   train(descriptors: Float32Array[], labels: string[]): void {
     if (descriptors.length !== labels.length) {

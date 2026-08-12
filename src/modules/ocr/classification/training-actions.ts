@@ -9,6 +9,8 @@ import {
   type DatasetStats,
   type LabeledSampleInput,
   type SaveLabeledSamplesResult,
+  type SaveSyntheticModelInput,
+  type SaveSyntheticModelResult,
   type TrainAndEvaluateResult,
 } from "@/modules/ocr/classification/training-types";
 import type { Json } from "@/types/database";
@@ -191,4 +193,57 @@ export async function trainAndEvaluateModel(): Promise<TrainAndEvaluateResult> {
   revalidatePath("/ocr-lab/train");
 
   return { trainCount: trainRows.length, testCount: testRows.length, classes, accuracy, modelId: inserted.id };
+}
+
+/**
+ * Persiste un modelo entrenado con dataset **sintético** (Fase 4d,
+ * `synthesizeDataset` + `trainModel`, corridos enteramente en el
+ * navegador — requieren Canvas/fuentes reales, ver
+ * `dataset-synthesizer.ts`). Misma tabla que `trainAndEvaluateModel`
+ * (`ocr_models`), `version` prefijada `synthetic-` para distinguirlo a
+ * simple vista de un modelo entrenado con dataset real etiquetado en OCR
+ * LAB. `active: false` — activar un modelo es una decisión aparte
+ * (`MODEL_ACTIVATED`), no automática al entrenar.
+ */
+export async function saveSyntheticModel(input: SaveSyntheticModelInput): Promise<SaveSyntheticModelResult> {
+  const { supabase } = await requireAdmin();
+
+  let parsedModel: Json;
+  try {
+    parsedModel = JSON.parse(input.modelJson);
+  } catch {
+    throw new Error("modelJson inválido — no es JSON parseable.");
+  }
+
+  const version = `synthetic-${new Date().toISOString()}`;
+
+  const { data: inserted, error } = await supabase
+    .from("ocr_models")
+    .insert({
+      document_type: DOCUMENT_TYPE,
+      version,
+      active: false,
+      model_data: parsedModel,
+      metrics: { ...input.metrics, source: "synthetic" } as Json,
+    })
+    .select("id")
+    .single();
+
+  if (error || !inserted) {
+    throw new Error(`No se pudo guardar el modelo sintético: ${error?.message ?? "sin fila devuelta"}`);
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    await logAuditEvent(supabase, {
+      actorId: user.id,
+      action: "MODEL_TRAINED",
+      metadata: { document_type: DOCUMENT_TYPE, version, source: "synthetic", ...input.metrics },
+    });
+  }
+
+  revalidatePath("/ocr-lab/train");
+  return { modelId: inserted.id, version };
 }
