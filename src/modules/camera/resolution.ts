@@ -15,17 +15,28 @@
  */
 export const MIN_CAPTURE_WIDTH = 640;
 export const MIN_CAPTURE_HEIGHT = 480;
+export const MIN_CAPTURE_AREA = MIN_CAPTURE_WIDTH * MIN_CAPTURE_HEIGHT;
 
 export interface ResolutionCheckResult {
   ok: boolean;
   reason?: string;
 }
 
+/**
+ * Validamos área total en píxeles, no dimensiones específicas, para
+ * soportar tanto portrait como landscape sin rechazar por orientación. Un
+ * celular en portrait captura ancho×alto = 480×640px; el mismo sensor en
+ * landscape captura 640×480px — ambas son válidas y tienen la misma área
+ * (307 200px), pero comparar "ancho >= 640 AND alto >= 480" por separado
+ * rechazaba la primera solo por venir con las dimensiones invertidas.
+ */
 export function validateCaptureResolution(width: number, height: number): ResolutionCheckResult {
-  if (width < MIN_CAPTURE_WIDTH || height < MIN_CAPTURE_HEIGHT) {
+  const area = width * height;
+
+  if (area < MIN_CAPTURE_AREA) {
     return {
       ok: false,
-      reason: `La imagen es muy pequeña (${width}×${height}px). Se necesita al menos ${MIN_CAPTURE_WIDTH}×${MIN_CAPTURE_HEIGHT}px.`,
+      reason: `La imagen es muy pequeña (${width}×${height}px). Se necesita al menos ${MIN_CAPTURE_WIDTH}×${MIN_CAPTURE_HEIGHT}px (en cualquier orientación).`,
     };
   }
 

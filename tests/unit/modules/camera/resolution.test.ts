@@ -17,26 +17,30 @@ describe("validateCaptureResolution", () => {
     expect(validateCaptureResolution(640, 480).ok).toBe(true);
   });
 
-  it("639×480px NO pasa la validación (un píxel por debajo del ancho mínimo)", () => {
+  it("639×480px NO pasa la validación (área por debajo del mínimo)", () => {
     const result = validateCaptureResolution(639, 480);
     expect(result.ok).toBe(false);
     expect(result.reason).toContain("640");
     expect(result.reason).toContain("480");
   });
 
+  // Portrait (celular vertical): ancho×alto = 480×640px. Área = 307 200px,
+  // igual al mínimo requerido (640×480) — debe pasar aunque las
+  // dimensiones vengan "invertidas" respecto al mínimo declarado.
+  it("480×640px (portrait) pasa la validación — misma área que 640×480", () => {
+    expect(validateCaptureResolution(480, 640).ok).toBe(true);
+  });
+
   it("acepta una resolución típica de cámara trasera moderna", () => {
     expect(validateCaptureResolution(4032, 3024).ok).toBe(true);
   });
 
-  it("rechaza cuando el ancho está por debajo del mínimo", () => {
-    const result = validateCaptureResolution(MIN_CAPTURE_WIDTH - 1, MIN_CAPTURE_HEIGHT);
+  it("rechaza cuando el área total está por debajo del mínimo aunque un lado sea largo", () => {
+    // 2000×100px: un lado muy largo, pero área (200 000px) muy por debajo
+    // del mínimo (307 200px) — no debe colarse por tener un lado grande.
+    const result = validateCaptureResolution(2000, 100);
     expect(result.ok).toBe(false);
     expect(result.reason).toBeTruthy();
-  });
-
-  it("rechaza cuando el alto está por debajo del mínimo", () => {
-    const result = validateCaptureResolution(MIN_CAPTURE_WIDTH, MIN_CAPTURE_HEIGHT - 1);
-    expect(result.ok).toBe(false);
   });
 
   it("rechaza cuando ambas dimensiones están por debajo del mínimo", () => {
