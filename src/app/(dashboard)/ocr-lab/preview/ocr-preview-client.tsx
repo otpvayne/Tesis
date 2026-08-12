@@ -7,16 +7,20 @@ import { normalizeRange } from "@/modules/ocr/preprocessing/normalize";
 import { computeHistogram } from "@/modules/ocr/preprocessing/histogram";
 import { computeOtsuThreshold, otsuBinarization } from "@/modules/ocr/preprocessing/otsu-binarization";
 import { denoise } from "@/modules/ocr/preprocessing/denoise";
-import { createImageData } from "@/modules/ocr/preprocessing/create-image-data";
 import { ensureTextIsForeground } from "@/modules/ocr/segmentation/normalize-polarity";
 import { findConnectedComponents, type Component } from "@/modules/ocr/segmentation/connected-components";
+import { computeProjections } from "@/modules/ocr/segmentation/projections";
 import { extractLines, type LineRegion } from "@/modules/ocr/segmentation/extract-lines";
 import { extractWordsFromLine, type WordRegion } from "@/modules/ocr/segmentation/extract-words";
 import { extractCharactersFromWord, type CharacterRegion } from "@/modules/ocr/segmentation/extract-characters";
 import { normalizeCharacter } from "@/modules/ocr/segmentation/normalize-character";
+import { OCR_CONFIG } from "@/modules/ocr/config";
 
 const HISTOGRAM_CANVAS_HEIGHT = 120;
 const COMPONENT_COLORS = ["#ef4444", "#3b82f6", "#22c55e", "#f97316", "#a855f7", "#06b6d4", "#eab308"];
+
+/** Paso más avanzado del pipeline aplicado sobre la imagen actual — gate visual, no persiste nada. */
+type PipelineStep = "none" | "grayscale" | "normalized" | "otsu" | "denoised" | "segmented";
 
 interface SegmentationResult {
   components: Component[];
@@ -95,11 +99,13 @@ function drawSegmentationOverlay(
 export function OcrPreviewClient() {
   const originalCanvasRef = useRef<HTMLCanvasElement>(null);
   const currentCanvasRef = useRef<HTMLCanvasElement>(null);
-  const histogramCanvasRef = useRef<HTMLCanvasElement>(null);
+  const originalHistogramCanvasRef = useRef<HTMLCanvasElement>(null);
+  const currentHistogramCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const [originalImage, setOriginalImage] = useState<ImageData | null>(null);
   const [currentImage, setCurrentImage] = useState<ImageData | null>(null);
   const [appliedSteps, setAppliedSteps] = useState<string[]>([]);
+  const [step, setStep] = useState<PipelineStep>("none");
   const [otsuThreshold, setOtsuThreshold] = useState<number | null>(null);
   const [kernelSize, setKernelSize] = useState(3);
   const [error, setError] = useState<string | null>(null);
@@ -109,12 +115,14 @@ export function OcrPreviewClient() {
   const [normalizedCharacters, setNormalizedCharacters] = useState<ImageData[] | null>(null);
 
   useEffect(() => {
-    if (originalImage) drawImageDataToCanvas(originalCanvasRef.current, originalImage);
+    if (!originalImage) return;
+    drawImageDataToCanvas(originalCanvasRef.current, originalImage);
+    drawHistogram(originalHistogramCanvasRef.current, computeHistogram(originalImage).histogram);
   }, [originalImage]);
 
   useEffect(() => {
     if (!currentImage) return;
-    drawHistogram(histogramCanvasRef.current, computeHistogram(currentImage).histogram);
+    drawHistogram(currentHistogramCanvasRef.current, computeHistogram(currentImage).histogram);
     if (segmentation) {
       drawSegmentationOverlay(currentCanvasRef.current, currentImage, segmentation);
     } else {
@@ -133,6 +141,7 @@ export function OcrPreviewClient() {
       setOriginalImage(imageData);
       setCurrentImage(imageData);
       setAppliedSteps([]);
+      setStep("none");
       setOtsuThreshold(null);
       setSegmentation(null);
       setNormalizedCharacters(null);
@@ -143,30 +152,31 @@ export function OcrPreviewClient() {
     }
   }
 
-  function applyStep(name: string, fn: (img: ImageData) => ImageData) {
+  function applyStep(name: string, nextStep: PipelineStep, fn: (img: ImageData) => ImageData) {
     if (!currentImage) return;
     setCurrentImage(fn(currentImage));
     setAppliedSteps((prev) => [...prev, name]);
+    setStep(nextStep);
     setSegmentation(null);
     setNormalizedCharacters(null);
   }
 
   function handleGrayscale() {
-    applyStep("Grayscale", toGrayscale);
+    applyStep("Grayscale", "grayscale", toGrayscale);
   }
 
   function handleNormalize() {
-    applyStep("Normalizar", normalizeRange);
+    applyStep("Normalizar", "normalized", normalizeRange);
   }
 
   function handleOtsu() {
     if (!currentImage) return;
     setOtsuThreshold(computeOtsuThreshold(currentImage));
-    applyStep("Otsu", otsuBinarization);
+    applyStep("Otsu", "otsu", otsuBinarization);
   }
 
   function handleDenoise() {
-    applyStep(`Denoise (kernel ${kernelSize})`, (img) => denoise(img, kernelSize));
+    applyStep(`Denoise (kernel ${kernelSize})`, "denoised", (img) => denoise(img, kernelSize));
   }
 
   function handleSegment() {
@@ -176,25 +186,24 @@ export function OcrPreviewClient() {
     // solo corrige polaridad si hace falta) -- pero sí determina qué canal
     // segmentation usa de aquí en adelante.
     const foreground = ensureTextIsForeground(currentImage);
+    const projections = computeProjections(foreground);
     const components = findConnectedComponents(foreground);
-    const lines = extractLines(foreground, components);
+    const lines = extractLines(foreground, components, projections);
     const words = lines.flatMap((line) => extractWordsFromLine(line));
     const characters = words.flatMap((word) => extractCharactersFromWord(word));
+    const normalized = characters.map((character) => normalizeCharacter(character));
 
     setSegmentation({ components, lines, words, characters });
-    setNormalizedCharacters(null);
+    setNormalizedCharacters(normalized);
     setAppliedSteps((prev) => [...prev, "Segmentar"]);
-  }
-
-  function handleNormalizeCharacters() {
-    if (!segmentation) return;
-    setNormalizedCharacters(segmentation.characters.map((c) => normalizeCharacter(c)));
+    setStep("segmented");
   }
 
   function handleReset() {
     if (!originalImage) return;
     setCurrentImage(originalImage);
     setAppliedSteps([]);
+    setStep("none");
     setOtsuThreshold(null);
     setSegmentation(null);
     setNormalizedCharacters(null);
@@ -272,6 +281,29 @@ export function OcrPreviewClient() {
             {otsuThreshold !== null ? ` — threshold de Otsu: ${otsuThreshold}` : ""}
           </p>
 
+          <div className="grid grid-cols-2 gap-2 rounded-md border border-neutral-200 p-3 text-xs text-neutral-600 dark:border-neutral-800 dark:text-neutral-400 sm:grid-cols-5">
+            <div>
+              <p className="font-medium text-neutral-500 dark:text-neutral-500">Resolución actual</p>
+              <p>{currentImage ? `${currentImage.width}×${currentImage.height}px` : "—"}</p>
+            </div>
+            <div>
+              <p className="font-medium text-neutral-500 dark:text-neutral-500">Componentes</p>
+              <p>{segmentation ? segmentation.components.length : "—"}</p>
+            </div>
+            <div>
+              <p className="font-medium text-neutral-500 dark:text-neutral-500">Líneas</p>
+              <p>{segmentation ? segmentation.lines.length : "—"}</p>
+            </div>
+            <div>
+              <p className="font-medium text-neutral-500 dark:text-neutral-500">Palabras</p>
+              <p>{segmentation ? segmentation.words.length : "—"}</p>
+            </div>
+            <div>
+              <p className="font-medium text-neutral-500 dark:text-neutral-500">Caracteres</p>
+              <p>{segmentation ? segmentation.characters.length : "—"}</p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Original</p>
@@ -285,35 +317,36 @@ export function OcrPreviewClient() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-              Histograma (imagen procesada actual)
-            </p>
-            <canvas ref={histogramCanvasRef} className="w-full rounded-md border border-neutral-200 bg-white dark:border-neutral-800" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                Histograma (imagen original)
+              </p>
+              <canvas ref={originalHistogramCanvasRef} className="w-full rounded-md border border-neutral-200 bg-white dark:border-neutral-800" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                Histograma (imagen procesada actual)
+              </p>
+              <canvas ref={currentHistogramCanvasRef} className="w-full rounded-md border border-neutral-200 bg-white dark:border-neutral-800" />
+            </div>
           </div>
 
-          {segmentation ? (
+          {step === "segmented" && segmentation && normalizedCharacters ? (
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-                  {segmentation.lines.length} línea(s), {segmentation.words.length} palabra(s),{" "}
-                  {segmentation.characters.length} carácter(es) segmentado(s)
-                </p>
-                <button
-                  type="button"
-                  onClick={handleNormalizeCharacters}
-                  className="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200"
-                >
-                  Normalizar caracteres
-                </button>
-              </div>
+              <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                Caracteres normalizados ({OCR_CONFIG.CHAR_SIZE}×{OCR_CONFIG.CHAR_SIZE}px cada uno)
+              </p>
 
-              <div className="flex flex-wrap gap-2 rounded-md border border-neutral-200 p-2 dark:border-neutral-800">
-                {(normalizedCharacters ?? segmentation.characters.map((c) => createImageData(c.pixels, c.width, c.height))).map(
-                  (img, i) => (
-                    <CharacterThumbnail key={i} imageData={img} />
-                  ),
-                )}
+              <div className="flex flex-wrap gap-3 rounded-md border border-neutral-200 p-2 dark:border-neutral-800">
+                {segmentation.characters.map((character, i) => (
+                  <div key={i} className="flex flex-col items-center gap-1">
+                    <CharacterThumbnail imageData={normalizedCharacters[i]} />
+                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                      Char {i + 1}: {character.width}×{character.height}px → {OCR_CONFIG.CHAR_SIZE}×{OCR_CONFIG.CHAR_SIZE}px
+                    </span>
+                  </div>
+                ))}
                 {segmentation.characters.length === 0 ? (
                   <p className="text-sm text-neutral-500 dark:text-neutral-400">
                     No se encontraron caracteres — revisa que la imagen esté binarizada
@@ -338,7 +371,7 @@ function CharacterThumbnail({ imageData }: { imageData: ImageData }) {
   return (
     <canvas
       ref={ref}
-      className="h-10 w-10 rounded border border-neutral-300 bg-black dark:border-neutral-700"
+      className="h-8 w-8 rounded border border-neutral-300 bg-black dark:border-neutral-700"
       style={{ imageRendering: "pixelated" }}
     />
   );
