@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { synthesizeDataset } from "@/modules/ocr/classification/dataset-synthesizer";
 import { trainModel, type TrainingResult } from "@/modules/ocr/classification/model-trainer";
 import { serializeModel } from "@/modules/ocr/classification/model-persistence";
-import { saveSyntheticModel } from "@/modules/ocr/classification/training-actions";
+import { activateModel, saveSyntheticModel } from "@/modules/ocr/classification/training-actions";
 import { OCR_TRAINING_CONFIG } from "@/modules/ocr/config";
 
 const DEFAULT_CHARACTERS = [
@@ -27,14 +27,17 @@ export function SyntheticTrainingPanel() {
   const [modelJson, setModelJson] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [savedModelId, setSavedModelId] = useState<string | null>(null);
   const [isWorking, startWorking] = useTransition();
   const [isSaving, startSaving] = useTransition();
+  const [isActivating, startActivating] = useTransition();
 
   function handleGenerateAndTrain() {
     setError(null);
     setStatus(null);
     setResult(null);
     setModelJson(null);
+    setSavedModelId(null);
 
     startWorking(() => {
       try {
@@ -82,8 +85,22 @@ export function SyntheticTrainingPanel() {
           },
         });
         setStatus(`Modelo guardado en ocr_models (id=${saved.modelId}, version=${saved.version}, inactivo).`);
+        setSavedModelId(saved.modelId);
       } catch (err) {
         setError(err instanceof Error ? err.message : "No se pudo guardar el modelo.");
+      }
+    });
+  }
+
+  function handleActivate() {
+    if (!savedModelId) return;
+    setError(null);
+    startActivating(async () => {
+      try {
+        await activateModel(savedModelId);
+        setStatus("Modelo activado — /documents/[id] ya puede usarlo para procesar facturas.");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "No se pudo activar el modelo.");
       }
     });
   }
@@ -163,6 +180,14 @@ export function SyntheticTrainingPanel() {
           className="rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-neutral-50 dark:text-neutral-900"
         >
           Descargar modelo (JSON)
+        </button>
+        <button
+          type="button"
+          onClick={handleActivate}
+          disabled={!savedModelId || isActivating}
+          className="rounded-md border border-emerald-500 px-3 py-2 text-sm font-medium text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-400 dark:text-emerald-300"
+        >
+          {isActivating ? "Activando..." : "Activar este modelo"}
         </button>
       </div>
 

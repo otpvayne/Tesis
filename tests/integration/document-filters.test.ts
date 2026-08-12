@@ -77,7 +77,7 @@ beforeAll(async () => {
     raw_text: "Acme Corp factura de prueba",
     extracted_data: {
       proveedor: { value: "Acme Corp", confidence: 0.9, sourceRegion: {} },
-      monto_total: { value: "150000", confidence: 0.9, sourceRegion: {} },
+      total: { value: "150000", confidence: 0.9, sourceRegion: {} },
     },
   });
   if (ocrErr) throw ocrErr;

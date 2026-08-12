@@ -173,8 +173,11 @@ progreso falso basado en timers).
 ## 8. Requerimientos
 
 **Funcionales:** RF-001 Captura · RF-002 OCR propio · RF-003 Extracción de campos
-(obligatorio: proveedor, fecha, monto_total; deseado: numero_factura; sin líneas de
-producto) · RF-004 Almacenamiento (Supabase) · RF-005 Consulta con filtros · RF-006
+(obligatorio: **Proveedor, NIT, Fecha, IVA, Valor, Total** — actualizado en Fase 4e con
+datos reales de Mansor, especificado según facturación colombiana; reemplaza la
+definición original de Fase 0 que era `proveedor, fecha, monto_total` + `numero_factura`
+deseado; sin líneas de producto) · RF-004 Almacenamiento (Supabase) · RF-005 Consulta
+con filtros · RF-006
 Integración contable — **DEFERRED**, no implementar SIIGO ni mocks presentados como
 reales · RF-007 Validación humana (con trazabilidad de original vs. validado).
 
@@ -235,28 +238,38 @@ servidor de desarrollo o herramientas de navegador en esta sesión (sección 11)
 
 ## 13. Estado actual
 
-Fase activa: **Fase 4d — Entrenamiento OCR (dataset sintético)** (en cierre, esperando
-aprobación). Fases 0, 1, 2, 3, 4a, 4b y 4c integradas a `main`. Ver `docs/roadmap.md`
-para el plan de fases siguientes y `docs/requirements/traceability.md` para el estado
-por requerimiento.
+Fase activa: **Fase 4e — Pipeline OCR completo + extracción de campos** (en cierre,
+esperando aprobación). Fases 0, 1, 2, 3, 4a, 4b, 4c y 4d integradas a `main`. Ver
+`docs/roadmap.md` para el plan de fases siguientes y `docs/requirements/traceability.md`
+para el estado por requerimiento.
 
-**Desviación de roadmap pendiente de reconciliar:** `docs/roadmap.md` (fijo desde
-Fase 0: "el orden y el contenido de cada fase son fijos") asignaba la UI de OCR LAB de
-etiquetado/entrenamiento a Fase 4d, no a 4c. Se construyó en 4c por pedido explícito de
-ese prompt. Fase 4d terminó cubriendo la parte de "muestras sintéticas" que el propio
-roadmap ya preveía para 4d ("primeras muestras reales/sintéticas") — lo que queda
-genuinamente pendiente de 4d según el roadmap original es "primeras muestras **reales**"
-(el equipo etiquetando facturas de Mansor, todavía no hecho) y un "primer modelo
-`invoice_es_v1`" formal (activado) — hoy solo existen modelos `synthetic-<timestamp>`,
-ninguno activado. Pendiente que el equipo confirme si esto cierra la desviación o si
-prefiere otra reconciliación antes de actualizar `docs/roadmap.md`.
+**RF-003 actualizado con datos reales de Mansor:** los campos obligatorios cambiaron de
+`proveedor/fecha/monto_total` (+ `numero_factura` deseado, Fase 0) a **Proveedor, NIT,
+Fecha, IVA, Valor, Total** (facturación colombiana). Cambio confirmado explícitamente
+por el equipo antes de ejecutar Fase 4e (no asumido). `monto_total` → `total` se
+propagó a `modules/documents/queries.ts` (RF-005, Fase 2) y se verificó contra Supabase
+real.
 
-**Límite de sesión relevante para Fase 4d:** generar el dataset sintético requiere
-renderizar texto con fuentes reales (Canvas 2D `fillText`), que solo funciona en un
-navegador real — esta sesión no pudo ejecutar la síntesis ni el entrenamiento real, solo
-escribir y testear el código (igual que `decodeImage` en Fase 4a). Ninguna cifra de
-dataset/accuracy de Fase 4d es de esta sesión — las produce el equipo corriendo
-`/ocr-lab/train`.
+**Desviación de roadmap sin resolver (arrastrada de Fase 4c/4d):** `docs/roadmap.md`
+asignaba la UI de OCR LAB de etiquetado/entrenamiento a Fase 4d, no a 4c; se construyó
+en 4c por pedido explícito de ese prompt. Sigue pendiente que el equipo confirme cómo
+reconciliar `docs/roadmap.md` — no bloquea el trabajo, pero no se resuelve sola.
+
+**Hueco real encontrado y cerrado en Fase 4e:** ni `trainAndEvaluateModel` (4c) ni
+`saveSyntheticModel` (4d) activan el modelo que entrenan (`active` queda `false`
+siempre, a propósito). Sin activar ningún modelo, `/api/ocr/active-model` (nuevo en
+Fase 4e) siempre daría 404 y "Procesar documento" nunca funcionaría — se agregó
+`activateModel` + botón "Activar este modelo" en ambas secciones de `/ocr-lab/train`.
+Sigue sin haber ningún modelo activado todavía (nadie ha corrido `/ocr-lab/train` en un
+navegador real) — el equipo debe hacerlo antes de que RF-002/RF-003 funcionen de
+extremo a extremo.
+
+**Límite de sesión (Fase 4d, no aplica a 4e):** generar el dataset sintético (Fase 4d)
+requiere Canvas 2D con fuentes reales, solo disponible en navegador — esta sesión no
+pudo ejecutar esa síntesis. El pipeline de Fase 4e (`runOCRPipelineOnImageData`) **sí es
+completamente testeable** con `ImageData` sintética (solo `decodeImage`, el paso de
+decodificar el archivo subido, requiere navegador) — el benchmark de RNF-001 en el
+cierre de Fase 4e es una medición real, no una estimación.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

@@ -114,11 +114,19 @@ migración de esquema:
 ```json
 {
   "proveedor": { "value": "...", "confidence": 0.0, "sourceRegion": {"x":0,"y":0,"w":0,"h":0} },
+  "nit": { "value": "...", "confidence": 0.0, "sourceRegion": {} },
   "fecha": { "value": "...", "confidence": 0.0, "sourceRegion": {} },
-  "monto_total": { "value": "...", "confidence": 0.0, "sourceRegion": {} },
-  "numero_factura": { "value": null, "confidence": 0.0, "sourceRegion": {} }
+  "iva": { "value": 0.0, "confidence": 0.0, "sourceRegion": {} },
+  "valor": { "value": 0.0, "confidence": 0.0, "sourceRegion": {} },
+  "total": { "value": 0.0, "confidence": 0.0, "sourceRegion": {} }
 }
 ```
+
+Campos actualizados en Fase 4e con datos reales de Mansor (facturación colombiana) —
+reemplaza el conjunto original de Fase 0 (`proveedor`, `fecha`, `monto_total` +
+`numero_factura` deseado). `monto_total` pasó a llamarse `total`; `numero_factura` se
+retiró del alcance obligatorio (no se pidió en la actualización); se agregaron `nit` e
+`iva`. Ver `docs/requirements/traceability.md` (RF-003) y `CLAUDE.md` §8.
 
 | Columna | Tipo | Notas |
 |---|---|---|

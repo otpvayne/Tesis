@@ -21,7 +21,13 @@ export interface DocumentFilters {
    * orden de fases. Ver docs/requirements/traceability.md.
    */
   provider?: string;
-  /** Igual que `provider`, sobre extracted_data->monto_total->>value. */
+  /**
+   * Igual que `provider`, sobre `extracted_data->total->>value` — el campo
+   * `total` de RF-003 (Fase 4e, "Total con IVA"). Se llamaba `monto_total`
+   * en la definición de RF-003 de Fase 0; renombrado junto con el resto
+   * del campo cuando RF-003 se actualizó con datos reales de Mansor (ver
+   * `docs/requirements/traceability.md`).
+   */
   minAmount?: number;
   maxAmount?: number;
 }
@@ -102,14 +108,14 @@ export async function listDocuments(
   }
   if (filters.minAmount !== undefined) {
     query = query.filter(
-      "ocr_results.extracted_data->monto_total->>value::numeric",
+      "ocr_results.extracted_data->total->>value::numeric",
       "gte",
       String(filters.minAmount),
     );
   }
   if (filters.maxAmount !== undefined) {
     query = query.filter(
-      "ocr_results.extracted_data->monto_total->>value::numeric",
+      "ocr_results.extracted_data->total->>value::numeric",
       "lte",
       String(filters.maxAmount),
     );
