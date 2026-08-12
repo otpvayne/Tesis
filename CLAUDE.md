@@ -238,10 +238,19 @@ servidor de desarrollo o herramientas de navegador en esta sesión (sección 11)
 
 ## 13. Estado actual
 
-Fase activa: **Fase 4e — Pipeline OCR completo + extracción de campos** (en cierre,
-esperando aprobación). Fases 0, 1, 2, 3, 4a, 4b, 4c y 4d integradas a `main`. Ver
+Fase activa: **Fase 4f — Evaluación OCR (métricas y benchmark)** (en cierre, esperando
+aprobación). Fases 0, 1, 2, 3, 4a, 4b, 4c, 4d y 4e integradas a `main`. Ver
 `docs/roadmap.md` para el plan de fases siguientes y `docs/requirements/traceability.md`
 para el estado por requerimiento.
+
+**Fase 4f no tiene datos reales que evaluar todavía:** se construyó la infraestructura
+completa (`modules/ocr/evaluation/`: métricas de caracteres, extracción de campos,
+benchmark, reproducibilidad, generador de reporte) y una evaluación real contra el
+modelo activo + partición `test` de `ocr_training_samples` — pero esa partición está
+vacía (nadie ha etiquetado facturas reales de Mansor). La única corrida hecha en esta
+sesión usa datos sintéticos (alfabeto de 2 formas conocidas) para confirmar que la
+aritmética es correcta, no para afirmar precisión real — ver
+`docs/ocr/evaluation.md` §6.
 
 **RF-003 actualizado con datos reales de Mansor:** los campos obligatorios cambiaron de
 `proveedor/fecha/monto_total` (+ `numero_factura` deseado, Fase 0) a **Proveedor, NIT,
