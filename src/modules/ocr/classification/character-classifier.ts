@@ -1,5 +1,5 @@
 import { extractHOG } from "@/modules/ocr/classification/hog-extractor";
-import { KNNClassifier } from "@/modules/ocr/classification/knn-classifier";
+import { KNNClassifier, type SerializedKNNClassifier } from "@/modules/ocr/classification/knn-classifier";
 
 export interface LabeledCharacter {
   imageData: ImageData;
@@ -23,7 +23,7 @@ export interface CharacterPrediction {
  * `extractHOG`.
  */
 export class CharacterClassifier {
-  private readonly knn = new KNNClassifier();
+  private knn = new KNNClassifier();
 
   train(characters: LabeledCharacter[]): void {
     const descriptors = characters.map((character) => extractHOG(character.imageData));
@@ -35,5 +35,20 @@ export class CharacterClassifier {
     const descriptor = extractHOG(imageData);
     const { label, confidence, topN } = k === undefined ? this.knn.predict(descriptor) : this.knn.predict(descriptor, k);
     return { label, confidence, topN };
+  }
+
+  /**
+   * Serializa el `KNNClassifier` interno — HOG no tiene estado que
+   * entrenar (es una fórmula fija dado `OCR_CONFIG`), así que "el modelo"
+   * es literalmente las muestras del kNN.
+   */
+  toJSON(): SerializedKNNClassifier {
+    return this.knn.toJSON();
+  }
+
+  static fromJSON(data: SerializedKNNClassifier): CharacterClassifier {
+    const classifier = new CharacterClassifier();
+    classifier.knn = KNNClassifier.fromJSON(data);
+    return classifier;
   }
 }

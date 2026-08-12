@@ -5,15 +5,17 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 4c — Clasificación OCR (en cierre).** Pipeline propio completo
-> hasta clasificación de caracteres: preprocesamiento (Fase 4a) + segmentación (Fase 4b)
-> + HOG y kNN propios (Fase 4c), 199 unit tests. `/ocr-lab/preview` (solo ADMIN) segmenta
-> y muestra el resultado; `/ocr-lab/train` (solo ADMIN, nuevo) permite etiquetar
-> caracteres y entrenar/evaluar un kNN sobre lo etiquetado — sin dataset real todavía
-> (llega en Fase 4d). Extracción de campos y pipeline end-to-end siguen pendientes
+> Estado actual: **Fase 4d — Entrenamiento OCR (en cierre).** Pipeline propio completo
+> hasta clasificación: preprocesamiento (4a) + segmentación (4b) + HOG y kNN (4c) +
+> generación de dataset sintético y entrenamiento (4d), 220 unit tests. `/ocr-lab/train`
+> (solo ADMIN) ahora también genera caracteres sintéticos (fuentes + distorsiones),
+> entrena un kNN, muestra accuracy/matriz de confusión, y guarda el modelo — pero
+> **ninguna cifra concreta fue generada por esta sesión**: renderizar fuentes requiere
+> un navegador real, así que el dataset/modelo/accuracy reales los produce el equipo
+> corriendo la herramienta. Extracción de campos y pipeline end-to-end siguen pendientes
 > (Fase 4e en adelante). Ver [`docs/roadmap.md`](docs/roadmap.md) — nota: la UI de
-> etiquetado se adelantó de Fase 4d a 4c por pedido explícito del equipo, desviación
-> del roadmap fijo que queda pendiente de reconciliar (ver cierre de Fase 4c).
+> etiquetado se adelantó de Fase 4d a 4c por pedido explícito del equipo; sigue pendiente
+> de reconciliar formalmente el roadmap fijo (ver `CLAUDE.md` §13).
 
 ## Equipo
 

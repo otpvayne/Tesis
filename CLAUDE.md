@@ -235,18 +235,28 @@ servidor de desarrollo o herramientas de navegador en esta sesión (sección 11)
 
 ## 13. Estado actual
 
-Fase activa: **Fase 4c — Clasificación OCR** (en cierre, esperando aprobación).
-Fases 0, 1, 2, 3, 4a y 4b integradas a `main`. Ver `docs/roadmap.md` para el plan de
-fases siguientes y `docs/requirements/traceability.md` para el estado por
-requerimiento.
+Fase activa: **Fase 4d — Entrenamiento OCR (dataset sintético)** (en cierre, esperando
+aprobación). Fases 0, 1, 2, 3, 4a, 4b y 4c integradas a `main`. Ver `docs/roadmap.md`
+para el plan de fases siguientes y `docs/requirements/traceability.md` para el estado
+por requerimiento.
 
 **Desviación de roadmap pendiente de reconciliar:** `docs/roadmap.md` (fijo desde
 Fase 0: "el orden y el contenido de cada fase son fijos") asignaba la UI de OCR LAB de
-etiquetado/entrenamiento a Fase 4d, no a 4c. El prompt de Fase 4c pidió explícitamente
-construir `/ocr-lab/train` ahora; se construyó, pero el roadmap no se actualizó
-unilateralmente — queda pendiente que el equipo confirme si Fase 4d se reduce a
-"poblar el dataset con facturas reales" (la UI ya existe) o si se prefiere otra
-reconciliación, y entonces si actualizar `docs/roadmap.md` en consecuencia.
+etiquetado/entrenamiento a Fase 4d, no a 4c. Se construyó en 4c por pedido explícito de
+ese prompt. Fase 4d terminó cubriendo la parte de "muestras sintéticas" que el propio
+roadmap ya preveía para 4d ("primeras muestras reales/sintéticas") — lo que queda
+genuinamente pendiente de 4d según el roadmap original es "primeras muestras **reales**"
+(el equipo etiquetando facturas de Mansor, todavía no hecho) y un "primer modelo
+`invoice_es_v1`" formal (activado) — hoy solo existen modelos `synthetic-<timestamp>`,
+ninguno activado. Pendiente que el equipo confirme si esto cierra la desviación o si
+prefiere otra reconciliación antes de actualizar `docs/roadmap.md`.
+
+**Límite de sesión relevante para Fase 4d:** generar el dataset sintético requiere
+renderizar texto con fuentes reales (Canvas 2D `fillText`), que solo funciona en un
+navegador real — esta sesión no pudo ejecutar la síntesis ni el entrenamiento real, solo
+escribir y testear el código (igual que `decodeImage` en Fase 4a). Ninguna cifra de
+dataset/accuracy de Fase 4d es de esta sesión — las produce el equipo corriendo
+`/ocr-lab/train`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

@@ -11,7 +11,7 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 | ID | Caso de uso | Módulo | Archivos | Prueba | Estado |
 |---|---|---|---|---|---|
 | RF-001 | Capturar documento por cámara o selección de imagen | `modules/camera` | `src/modules/camera/{errors,availability,resolution,use-camera-stream,CameraCapture}.{ts,tsx}`, `src/app/(dashboard)/documents/new/page.tsx` | lógica pura: `tests/unit/modules/camera/*.test.ts` (18/18 verde); captura/preview/stream real: **sin test automatizado posible** (jsdom no implementa `getUserMedia`/`<video>`), pendiente de verificación manual — ver checklist en el cierre de Fase 3 | IMPLEMENTED (no VERIFIED) |
-| RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b): `src/modules/ocr/segmentation/*.ts`, `src/modules/ocr/config.ts`; clasificación (4c): `src/modules/ocr/classification/*.ts`; entrenamiento (4d), pipeline en worker (4e): *(pendiente)* | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (53/53); segmentación: `tests/unit/modules/ocr/segmentation/*.test.ts` (40/40); clasificación: `tests/unit/modules/ocr/classification/*.test.ts` (23/23) | IN_PROGRESS — preprocesamiento (4a), segmentación (4b) y clasificación/infraestructura (4c) **VERIFIED** (algoritmos correctos sobre datos sintéticos; sin modelo real todavía); entrenamiento con dataset real/pipeline/evaluación siguen PENDING |
+| RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b): `src/modules/ocr/segmentation/*.ts`, `src/modules/ocr/config.ts`; clasificación + entrenamiento sintético (4c/4d): `src/modules/ocr/classification/*.ts`; pipeline en worker (4e): *(pendiente)* | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (53/53); segmentación: `tests/unit/modules/ocr/segmentation/*.test.ts` (40/40); clasificación/entrenamiento: `tests/unit/modules/ocr/classification/*.test.ts` (44/44) | IN_PROGRESS — preprocesamiento (4a), segmentación (4b), clasificación (4c) e infraestructura de entrenamiento (4d) **VERIFIED** (algoritmos correctos; sin dataset/modelo real medido — ver nota de sesión en Fase 4d abajo); pipeline/evaluación siguen PENDING |
 | RF-003 | Extraer proveedor, fecha, monto_total (deseado: numero_factura) para `invoice_es` | `modules/ocr/extraction` | *(Fase 4e)* | *(Fase 4e/4f)* | PENDING |
 | RF-004 | Almacenar documento original + datos asociados en Supabase | `modules/documents` | esquema: `supabase/migrations/20260811200929_create_documents.sql`; bucket: `supabase/migrations/20260811205322_create_documents_storage_bucket.sql`; subida: `src/modules/documents/actions.ts`, `src/app/(dashboard)/documents/new/page.tsx` | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7, incluye caso ADMIN con sesión real) | VERIFIED |
 | RF-005 | Consultar documentos con filtros (proveedor, fecha, monto, estado) | `modules/documents` | `src/modules/documents/queries.ts`, `src/app/(dashboard)/documents/page.tsx` | `tests/integration/document-filters.test.ts` (7/7 verde) | status/fecha **VERIFIED** con datos reales; proveedor/monto **IMPLEMENTED** (query correcta contra muestra sintética de `ocr_results`, sin datos reales que filtrar hasta RF-002/RF-003 en Fase 4/5 — no es un bug, es orden de fases) |
@@ -261,3 +261,42 @@ Al abrir `/ocr-lab/train` con caracteres segmentados reales, avisar si:
 - Entrenar con las primeras muestras etiquetadas produce un resultado razonable — sin
   dataset real todavía, ninguna cifra de accuracy de esta fase es representativa del
   modelo final (Fase 4d).
+
+## Entregables técnicos de Fase 4d
+
+| Entregable | Archivo(s) | Prueba | Estado |
+|---|---|---|---|
+| `distortions.ts` (rotación, escala, skew, ruido — funciones puras) | `src/modules/ocr/classification/distortions.ts` | `tests/unit/modules/ocr/classification/distortions.test.ts` (9/9, incluye rotación de 90° verificada exacta contra la matriz de rotación) | VERIFIED |
+| `dataset-synthesizer.ts` (`synthesizeDataset`, `renderCharacterGlyph`) | `src/modules/ocr/classification/dataset-synthesizer.ts` | orquestación: `dataset-synthesizer.test.ts` (5/5, con renderer inyectado); `renderCharacterGlyph` (Canvas 2D real): **sin test posible en esta sesión** (mismo límite que `decodeImage`, Fase 4a — ver nota de sesión abajo) | IMPLEMENTED (no VERIFIED end-to-end) |
+| `model-trainer.ts` (`trainModel`: split estratificado, accuracy/precision/recall/confusion matrix) | `src/modules/ocr/classification/model-trainer.ts` | `tests/unit/modules/ocr/classification/model-trainer.test.ts` (4/4, incluye matriz de confusión con un error deliberado verificado a mano) | VERIFIED |
+| `model-persistence.ts` (`serializeModel`/`deserializeModel`) | `src/modules/ocr/classification/model-persistence.ts` | `tests/unit/modules/ocr/classification/model-persistence.test.ts` (3/3) | VERIFIED |
+| `KNNClassifier.toJSON`/`fromJSON`, `CharacterClassifier.toJSON`/`fromJSON` (soporte de serialización, Fase 4c extendida) | `src/modules/ocr/classification/{knn-classifier,character-classifier}.ts` | cubierto por `model-persistence.test.ts` | VERIFIED |
+| `saveSyntheticModel` (Server Action, persiste en `ocr_models`, no en un bucket Storage nuevo) | `src/modules/ocr/classification/training-actions.ts` | `npm run build` sin errores; **sin verificación contra Supabase real** — el equipo lo prueba en `/ocr-lab/train` | IMPLEMENTED (no VERIFIED) |
+| `OCR_TRAINING_CONFIG` | `src/modules/ocr/config.ts` | usado por todo lo de arriba | IMPLEMENTED |
+| UI: sección "Dataset sintético" en `/ocr-lab/train` (generar+entrenar, matriz de confusión, guardar/descargar modelo) | `src/app/(dashboard)/ocr-lab/train/synthetic-training-panel.tsx` | `npm run build` sin errores; **sin verificación visual ni ejecución real** — requiere navegador real (Canvas+fuentes), el equipo la corre | IMPLEMENTED (no VERIFIED) |
+| `docs/ocr/training.md` §7 (dataset sintético: cómo, limitaciones, brecha sintético→real) | `docs/ocr/training.md` | — | VERIFIED (documentación) |
+
+### Límite de sesión (crítico, no un límite del código): sin dataset/modelo/métricas reales de esta fase
+
+Renderizar texto con fuentes reales (`ctx.font`+`fillText`) requiere un Canvas 2D de
+navegador real, que no existe en esta sesión (jsdom no lo implementa, sin paquete
+`canvas` de Node instalado — mismo límite ya documentado para `decodeImage` en Fase 4a).
+Por lo tanto, **ninguna cifra concreta pedida en el cierre de esta fase fue producida
+por esta sesión**: no hay dataset sintético real generado, no hay modelo entrenado real,
+no hay accuracy/precision/recall/matriz de confusión reales, no hay tiempo de
+entrenamiento ni tamaño de modelo serializado medidos. Lo que sí está verificado por
+unit test: las fórmulas de distorsión (a mano), la orquestación de síntesis (con un
+renderer falso inyectado, no canvas real), y el entrenamiento/evaluación/serialización
+del modelo (que no dependen de canvas — solo de descriptores HOG ya calculados sobre
+`ImageData` sintética construida directamente en los tests, sin pasar por fuentes
+reales). El equipo debe correr `/ocr-lab/train` en su navegador para obtener las cifras
+reales y reportarlas.
+
+### Desviación del prompt: sin bucket de Storage `ocr-models`
+
+Se pidió guardar el modelo en un bucket de Supabase Storage
+(`ocr-models/model-knn.json`). Ese bucket no existe (solo `documents`) y crearlo
+requeriría una migración + políticas RLS nuevas — cambio de infraestructura fuera de lo
+que corresponde decidir unilateralmente en esta fase. Se reutiliza `ocr_models.model_data`
+(jsonb), ya existente y ya usado para esto en Fase 4c (`trainAndEvaluateModel`). Ver
+razón completa en `model-persistence.ts`.
