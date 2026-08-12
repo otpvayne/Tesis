@@ -11,7 +11,7 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 | ID | Caso de uso | Módulo | Archivos | Prueba | Estado |
 |---|---|---|---|---|---|
 | RF-001 | Capturar documento por cámara o selección de imagen | `modules/camera` | `src/modules/camera/{errors,availability,resolution,use-camera-stream,CameraCapture}.{ts,tsx}`, `src/app/(dashboard)/documents/new/page.tsx` | lógica pura: `tests/unit/modules/camera/*.test.ts` (18/18 verde); captura/preview/stream real: **sin test automatizado posible** (jsdom no implementa `getUserMedia`/`<video>`), pendiente de verificación manual — ver checklist en el cierre de Fase 3 | IMPLEMENTED (no VERIFIED) |
-| RF-002 | Reconocer texto vía OCR propio | `modules/ocr`, `workers/ocr.worker.ts` | *(Fase 4a–4e)* | *(Fase 4a–4f)* | PENDING |
+| RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b), clasificación (4c), pipeline en worker (4e): *(pendiente)* | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (42/42 verde) | IN_PROGRESS — preprocesamiento (4a) **VERIFIED**; el resto del reconocimiento (segmentación/clasificación/pipeline) sigue PENDING |
 | RF-003 | Extraer proveedor, fecha, monto_total (deseado: numero_factura) para `invoice_es` | `modules/ocr/extraction` | *(Fase 4e)* | *(Fase 4e/4f)* | PENDING |
 | RF-004 | Almacenar documento original + datos asociados en Supabase | `modules/documents` | esquema: `supabase/migrations/20260811200929_create_documents.sql`; bucket: `supabase/migrations/20260811205322_create_documents_storage_bucket.sql`; subida: `src/modules/documents/actions.ts`, `src/app/(dashboard)/documents/new/page.tsx` | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7, incluye caso ADMIN con sesión real) | VERIFIED |
 | RF-005 | Consultar documentos con filtros (proveedor, fecha, monto, estado) | `modules/documents` | `src/modules/documents/queries.ts`, `src/app/(dashboard)/documents/page.tsx` | `tests/integration/document-filters.test.ts` (7/7 verde) | status/fecha **VERIFIED** con datos reales; proveedor/monto **IMPLEMENTED** (query correcta contra muestra sintética de `ocr_results`, sin datos reales que filtrar hasta RF-002/RF-003 en Fase 4/5 — no es un bug, es orden de fases) |
@@ -115,3 +115,37 @@ Nada de esto se puede automatizar en esta sesión (`CLAUDE.md` §11 + jsdom sin
 7. **Contar las interacciones reales** desde el Dashboard hasta tener la foto lista
    para subir, en un celular real, para verificar RNF-002 (≤3) con datos reales en vez
    de una cuenta hecha por revisión de código.
+
+## Entregables técnicos de Fase 4a
+
+| Entregable | Archivo(s) | Prueba | Estado |
+|---|---|---|---|
+| `createImageData` (constructor compatible jsdom/navegador) | `src/modules/ocr/preprocessing/create-image-data.ts` | usado por todos los tests de abajo — sin test propio, es infraestructura de test | IMPLEMENTED |
+| `toGrayscale` (luminancia ITU-R BT.601) | `src/modules/ocr/preprocessing/grayscale.ts` | `tests/unit/modules/ocr/preprocessing/grayscale.test.ts` (8/8 verde) | VERIFIED |
+| `normalizeRange` (estiramiento min-max) | `src/modules/ocr/preprocessing/normalize.ts` | `tests/unit/modules/ocr/preprocessing/normalize.test.ts` (6/6 verde) | VERIFIED |
+| `computeHistogram` (256 bins + media/desviación/mediana exactas) | `src/modules/ocr/preprocessing/histogram.ts` | `tests/unit/modules/ocr/preprocessing/histogram.test.ts` (5/5 verde) | VERIFIED |
+| `computeOtsuThreshold` / `otsuBinarization` (Otsu propio, O(256)) | `src/modules/ocr/preprocessing/otsu-binarization.ts` | `tests/unit/modules/ocr/preprocessing/otsu-binarization.test.ts` (8/8 verde) | VERIFIED |
+| `denoise` (filtro de mediana, padding por replicación) | `src/modules/ocr/preprocessing/denoise.ts` | `tests/unit/modules/ocr/preprocessing/denoise.test.ts` (7/7 verde) | VERIFIED |
+| Pipeline completo encadenado (grayscale→normalize→otsu→denoise) | — (test de integración) | `tests/unit/modules/ocr/preprocessing/pipeline.test.ts` (4/4 verde) | VERIFIED |
+| `decodeImage` (createImageBitmap + canvas) | `src/modules/ocr/preprocessing/decode-image.ts` | manejo de errores real: `tests/unit/modules/ocr/preprocessing/decode-image.test.ts` (4/4 verde); **decodificación real de un JPG/PNG: sin test posible** (jsdom no implementa `createImageBitmap` ni un contexto 2D real) | IMPLEMENTED (no VERIFIED) |
+| `docs/ocr/algorithms.md` §1-5 con fórmulas reales, pseudocódigo y ejemplo numérico | `docs/ocr/algorithms.md` | ejemplos tomados directo de los tests arriba, no inventados aparte | VERIFIED |
+| OCR Lab preview (`/ocr-lab/preview`, gateado a ADMIN) | `src/app/(dashboard)/ocr-lab/preview/{page,ocr-preview-client}.tsx` | `npm run build` sin errores; **sin verificación visual** — capturas de pantalla las toma el equipo manualmente en Vercel (pedido explícito de esta fase) | IMPLEMENTED (no VERIFIED) |
+
+### Qué queda genuinamente sin verificar de Fase 4a (y por qué)
+
+`decodeImage` es la única función de Fase 4a cuyo comportamiento real (¿decodifica un
+JPG/PNG de verdad y produce los píxeles correctos?) no se pudo verificar con test
+automatizado: jsdom no implementa `createImageBitmap` ni un `<canvas>` con contexto 2D
+real (verificado antes de escribir el código, no asumido — ver nota al inicio de
+`decode-image.test.ts`). Sus tests cubren honestamente solo el manejo de errores
+(navegador sin soporte, archivo corrupto, sin contexto 2D), usando el comportamiento
+real de jsdom en esos casos, no mocks que finjan que la decodificación funciona. El
+resto del pipeline (grayscale → denoise) sí está 100% verificado porque opera sobre
+`ImageData` — una estructura de datos pura, no dependiente de renderizado real — que se
+puede construir sintéticamente en los tests con el mismo resultado que produciría un
+canvas real.
+
+La UI de `/ocr-lab/preview` tampoco tiene verificación visual (prohibido en esta sesión,
+`CLAUDE.md` §11) — el equipo debe abrirla en Vercel, cargar una factura real, y
+confirmar que cada botón (Grayscale/Normalizar/Otsu/Denoise) produce visualmente lo
+esperado, capturando pantallazos como evidencia.

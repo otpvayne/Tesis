@@ -5,10 +5,12 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 3 — Captura mobile first (cámara).** Captura por cámara con
-> fallback de archivo integrada al flujo de subida existente (todavía sin OCR). La
-> captura real en dispositivo **no se ha verificado en navegador real** — pendiente de
-> prueba manual del equipo. Ver [`docs/roadmap.md`](docs/roadmap.md).
+> Estado actual: **Fase 4a — Preprocesamiento OCR.** Pipeline propio (grayscale,
+> normalización, histograma, Otsu, filtro de mediana) implementado y probado con 42
+> unit tests. Ruta de desarrollo `/ocr-lab/preview` (solo ADMIN) para ver el
+> preprocesamiento sobre una imagen real — sin verificar visualmente todavía. Segmentación,
+> clasificación y extracción de campos siguen pendientes (Fase 4b en adelante). Ver
+> [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Equipo
 
