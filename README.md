@@ -5,13 +5,15 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 4b — Segmentación OCR.** Pipeline propio completo hasta
-> caracteres normalizados: preprocesamiento (Fase 4a) + componentes conectados,
-> líneas/palabras/caracteres, corrección de polaridad texto/fondo y normalización
-> (Fase 4b), 82 unit tests. `/ocr-lab/preview` (solo ADMIN) ahora también segmenta y
-> muestra el resultado — sin verificar visualmente todavía. Clasificación,
-> entrenamiento y extracción de campos siguen pendientes (Fase 4c en adelante). Ver
-> [`docs/roadmap.md`](docs/roadmap.md).
+> Estado actual: **Fase 4c — Clasificación OCR (en cierre).** Pipeline propio completo
+> hasta clasificación de caracteres: preprocesamiento (Fase 4a) + segmentación (Fase 4b)
+> + HOG y kNN propios (Fase 4c), 199 unit tests. `/ocr-lab/preview` (solo ADMIN) segmenta
+> y muestra el resultado; `/ocr-lab/train` (solo ADMIN, nuevo) permite etiquetar
+> caracteres y entrenar/evaluar un kNN sobre lo etiquetado — sin dataset real todavía
+> (llega en Fase 4d). Extracción de campos y pipeline end-to-end siguen pendientes
+> (Fase 4e en adelante). Ver [`docs/roadmap.md`](docs/roadmap.md) — nota: la UI de
+> etiquetado se adelantó de Fase 4d a 4c por pedido explícito del equipo, desviación
+> del roadmap fijo que queda pendiente de reconciliar (ver cierre de Fase 4c).
 
 ## Equipo
 

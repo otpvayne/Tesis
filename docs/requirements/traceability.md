@@ -11,7 +11,7 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 | ID | Caso de uso | Módulo | Archivos | Prueba | Estado |
 |---|---|---|---|---|---|
 | RF-001 | Capturar documento por cámara o selección de imagen | `modules/camera` | `src/modules/camera/{errors,availability,resolution,use-camera-stream,CameraCapture}.{ts,tsx}`, `src/app/(dashboard)/documents/new/page.tsx` | lógica pura: `tests/unit/modules/camera/*.test.ts` (18/18 verde); captura/preview/stream real: **sin test automatizado posible** (jsdom no implementa `getUserMedia`/`<video>`), pendiente de verificación manual — ver checklist en el cierre de Fase 3 | IMPLEMENTED (no VERIFIED) |
-| RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b): `src/modules/ocr/segmentation/*.ts`, `src/modules/ocr/config.ts`; clasificación (4c), pipeline en worker (4e): *(pendiente)* | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (42/42); segmentación: `tests/unit/modules/ocr/segmentation/*.test.ts` (40/40) | IN_PROGRESS — preprocesamiento (4a) y segmentación (4b) **VERIFIED**; clasificación/entrenamiento/pipeline/evaluación siguen PENDING |
+| RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b): `src/modules/ocr/segmentation/*.ts`, `src/modules/ocr/config.ts`; clasificación (4c): `src/modules/ocr/classification/*.ts`; entrenamiento (4d), pipeline en worker (4e): *(pendiente)* | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (53/53); segmentación: `tests/unit/modules/ocr/segmentation/*.test.ts` (40/40); clasificación: `tests/unit/modules/ocr/classification/*.test.ts` (23/23) | IN_PROGRESS — preprocesamiento (4a), segmentación (4b) y clasificación/infraestructura (4c) **VERIFIED** (algoritmos correctos sobre datos sintéticos; sin modelo real todavía); entrenamiento con dataset real/pipeline/evaluación siguen PENDING |
 | RF-003 | Extraer proveedor, fecha, monto_total (deseado: numero_factura) para `invoice_es` | `modules/ocr/extraction` | *(Fase 4e)* | *(Fase 4e/4f)* | PENDING |
 | RF-004 | Almacenar documento original + datos asociados en Supabase | `modules/documents` | esquema: `supabase/migrations/20260811200929_create_documents.sql`; bucket: `supabase/migrations/20260811205322_create_documents_storage_bucket.sql`; subida: `src/modules/documents/actions.ts`, `src/app/(dashboard)/documents/new/page.tsx` | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7, incluye caso ADMIN con sesión real) | VERIFIED |
 | RF-005 | Consultar documentos con filtros (proveedor, fecha, monto, estado) | `modules/documents` | `src/modules/documents/queries.ts`, `src/app/(dashboard)/documents/page.tsx` | `tests/integration/document-filters.test.ts` (7/7 verde) | status/fecha **VERIFIED** con datos reales; proveedor/monto **IMPLEMENTED** (query correcta contra muestra sintética de `ocr_results`, sin datos reales que filtrar hasta RF-002/RF-003 en Fase 4/5 — no es un bug, es orden de fases) |
@@ -22,7 +22,7 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 
 | ID | Descripción | Módulo | Archivos | Prueba | Estado |
 |---|---|---|---|---|---|
-| RNF-001 | Rendimiento OCR objetivo <5s, medido vía `processing_ms` | `modules/ocr` | *(Fase 4f)* | benchmark OCR sobre `test` | PENDING |
+| RNF-001 | Rendimiento OCR objetivo <5s, medido vía `processing_ms` | `modules/ocr` | *(Fase 4f, pipeline completo)* | Complejidad de `KNNClassifier.predict`: `O(N·D)` por carácter (`N`=muestras de entrenamiento, `D`=108 dims del descriptor HOG) — sin índice espacial (kd-tree, etc.), escaneo lineal. **Medido** (no estimado): con dataset sintético a escala de Fase 4d (62 clases × 130 muestras = 8060, datos aleatorios), `predict()` toma **~16.4ms** en esta máquina — no `<1ms` como se especuló al pedir esta fase. A ~700 caracteres por factura (rango reportado en Fase 4b), 700×16ms ≈ 11.2s **en serie** — superaría el objetivo de <5s si el pipeline real (Fase 4e) llama `predict()` secuencialmente sin paralelizar (Web Worker) ni optimizar la búsqueda de vecinos. Riesgo real a resolver en Fase 4e, no en esta fase (solo infraestructura) — dejar documentado ahora en vez de descubrirlo tarde. | PENDING (medición real solo posible con pipeline completo sobre `test`; el dato de arriba es benchmark de infraestructura, no del RNF) |
 | RNF-002 | Iniciar digitalización en ≤3 interacciones principales | `app/(dashboard)`, `modules/camera` | `src/app/(dashboard)/documents/new/page.tsx` (cámara se activa automáticamente al entrar; capturar → confirmar → subir) | conteo de interacciones por revisión de código, no medido en dispositivo real; e2e sigue *(Fase 7)* | IMPLEMENTED (no VERIFIED) |
 | RNF-003 | Seguridad: Auth nativo, HTTPS, RLS, storage privado, validación de MIME/tamaño | `lib/supabase`, `modules/documents` | `src/lib/supabase/{client,server,admin}.ts`, `supabase/migrations/*.sql`, `supabase/policies/*.md`, `src/modules/documents/validation.ts` (límite 10MB, MIME real por magic bytes) | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7) + `tests/unit/modules/documents/validation.test.ts` (11/11) | VERIFIED |
 | RNF-004 | Portabilidad: responsive, navegadores modernos desktop/móvil | `components/layout`, `app/(auth)`, `app/(dashboard)` | `src/app/(auth)/layout.tsx`, `src/app/(dashboard)/layout.tsx`, `src/components/layout/dashboard-nav.tsx`, `src/app/(dashboard)/documents/**` | `npm run build` (sin errores); **sin verificación visual en navegador real** — prohibido en esta sesión desde Fase 2 (`CLAUDE.md` §11), queda como verificación manual pendiente del equipo | IN_PROGRESS |
@@ -203,3 +203,61 @@ Al abrir `/ocr-lab/preview` con una factura real, avisar si:
 Esa retroalimentación real es la que debe informar qué parámetros ajustar antes de
 Fase 4c (clasificación) — ningún valor de `OCR_CONFIG` está calibrado con datos reales
 todavía, son puntos de partida razonables, no resultados medidos.
+
+## Entregables técnicos de Fase 4c
+
+| Entregable | Archivo(s) | Prueba | Estado |
+|---|---|---|---|
+| `extractHOG` (HOG propio, grilla 4×3×9=108) | `src/modules/ocr/classification/hog-extractor.ts` | `tests/unit/modules/ocr/classification/hog-extractor.test.ts` (5/5, incluye borde diagonal verificado a mano: pico en bin 140°) | VERIFIED |
+| `KNNClassifier` (kNN propio, voto ponderado por distancia + confidence + topN) | `src/modules/ocr/classification/knn-classifier.ts` | `tests/unit/modules/ocr/classification/knn-classifier.test.ts` (10/10, incluye caso a mano de voto ponderado ganando sobre conteo simple) | VERIFIED |
+| `CharacterClassifier` (HOG + kNN combinados) | `src/modules/ocr/classification/character-classifier.ts` | `tests/unit/modules/ocr/classification/character-classifier.test.ts` (2/2, integral: dos formas sintéticas distintas clasificadas correctamente) | VERIFIED |
+| `Dataset`/`TrainingSample` (split estratificado train/test en memoria) | `src/modules/ocr/classification/dataset.ts` | `tests/unit/modules/ocr/classification/dataset.test.ts` (6/6) | VERIFIED |
+| `OCR_CONFIG`: `HOG_GRID_COLS/ROWS`, `HOG_ORIENTATION_BINS`, `HOG_EPSILON`, `KNN_K`, `KNN_EPSILON` | `src/modules/ocr/config.ts` | usado por todo lo de arriba | IMPLEMENTED |
+| `docs/ocr/algorithms.md` §12-14 con fórmulas reales, desviación del diseño de HOG documentada, ejemplos numéricos | `docs/ocr/algorithms.md` | ejemplos tomados directo de los tests arriba | VERIFIED |
+| OCR Lab Training (`/ocr-lab/train`, gateado a ADMIN): grid de caracteres, etiquetado manual, guardado en `ocr_training_samples` (Supabase), progreso, entrenar + accuracy | `src/app/(dashboard)/ocr-lab/train/**` | `npm run build` sin errores; **sin verificación visual** — el equipo prueba en Vercel | IMPLEMENTED (no VERIFIED) |
+
+### Desviación del diseño original: HOG de 108 dims vía grilla directa, no celdas+bloques con solape
+
+El prompt de esta fase pedía celdas de 4px (grilla 8×8) + bloques de 2×2 celdas con
+solape del 50%, reducidos "a 108 dims" por sub-muestreo. Verificado que esa ruta da
+1764 valores (49 bloques × 36) de forma matemáticamente correcta, pero **no existe
+ninguna reducción limpia de 1764 (o de la grilla 8×8) a 108 = 12×9** — 12 regiones no
+factoriza en potencias de 2, los únicos divisores enteros de 32px. Implementar el HOG
+completo de 1764-dim solo para descartarlo con un sub-muestreo arbitrario habría sido
+complejidad sin uso real. Se implementó en su lugar una grilla directa de 4×3=12
+regiones (mismas fórmulas de gradiente/orientación/normalización L2, sin la etapa de
+bloques con solape), dando el mismo total de 108 dims que pedía el diseño original.
+Detalle completo y ejemplo numérico en `docs/ocr/algorithms.md` §12.
+
+### Corrección de fórmula: peso de voto kNN usa epsilon, no "+1"
+
+El prompt de esta fase especificaba `peso = 1 / (1 + distancia)` en su pseudocódigo,
+pero pedía a la vez `KNN_EPSILON: 0.001` en `OCR_CONFIG` — inconsistente entre sí (con
+"+1" el epsilon nunca se usaría). El diseño ya documentado en `docs/ocr/algorithms.md`
+§13 desde Fase 0 usa `peso = 1 / (distancia + epsilon)`, consistente con el parámetro
+pedido; se implementó esa fórmula (ya existente en el documento, no inventada para
+resolver la inconsistencia).
+
+### Riesgo real detectado (no bug, medición honesta): rendimiento de kNN sin índice espacial
+
+Ver RNF-001 arriba — `predict()` mide ~16.4ms a escala de dataset completo de Fase 4d
+(8060 muestras sintéticas), no los <1ms especulados al pedir la fase. En serie sobre
+~700 caracteres de una factura, eso supera el objetivo de <5s de RNF-001. Fase 4e
+(pipeline en Web Worker) necesita abordar esto — con Web Worker (no bloquea el hilo
+principal, cumple RNF-008) y/o optimizando la búsqueda de vecinos (ej. limitar
+candidatos por proximidad de bounding box antes de kNN, o una estructura espacial) si
+el benchmark real sobre dataset de Fase 4d confirma el problema. No se resuelve en esta
+fase (alcance explícito: solo infraestructura de clasificación) — se deja documentado
+para que Fase 4e no lo descubra tarde.
+
+### Qué debe revisar el equipo (pedido explícito de esta fase)
+
+Al abrir `/ocr-lab/train` con caracteres segmentados reales, avisar si:
+
+- El etiquetado manual (dropdown `0-9/A-Z/a-z`) es usable en un dispositivo real
+  (móvil incluido, por RNF-004).
+- El guardado en `ocr_training_samples` funciona contra Supabase real (no solo build
+  sin errores).
+- Entrenar con las primeras muestras etiquetadas produce un resultado razonable — sin
+  dataset real todavía, ninguna cifra de accuracy de esta fase es representativa del
+  modelo final (Fase 4d).

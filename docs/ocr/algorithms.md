@@ -7,8 +7,9 @@ ya hecha de estos algoritmos, no conocer su definición. Cada función que imple
 fórmula de este documento la referencia en su TSDoc.
 
 Las secciones 1–5 están **implementadas y con unit tests en verde** desde Fase 4a
-(`src/modules/ocr/preprocessing/`). Las secciones 6 en adelante siguen siendo diseño
-para fases futuras (4b/4c), sin cambios respecto a Fase 0.
+(`src/modules/ocr/preprocessing/`). Las secciones 7–13 desde Fase 4b/4c
+(`src/modules/ocr/segmentation/`, `src/modules/ocr/classification/`). Ver estado
+detallado y conteo de tests por sección en §15.
 
 ## 1. Escala de grises — `grayscale.ts` (Fase 4a, implementado)
 
@@ -377,62 +378,140 @@ Ejemplo verificado en `normalize-character.test.ts`: un carácter de 10×20 (rat
 el doble de alto que de ancho) normalizado a 32×32 da `newHeight=32, newWidth=16` —
 sigue siendo el doble de alto que de ancho (`32 = 2×16`), la forma no se distorsiona.
 
-## 12. HOG — Histogram of Oriented Gradients (propio) — Fase 4c, diseño
+## 12. HOG — Histogram of Oriented Gradients (propio) — `hog-extractor.ts` (Fase 4c, implementado)
 
-Sobre cada carácter normalizado a tamaño fijo (ej. `WxH` a definir en Fase 4c):
+Sobre cada carácter normalizado a `CHAR_SIZE × CHAR_SIZE` (32×32, Fase 4b):
 
-**Gradientes** (Sobel simple o diferencia central):
+**Gradientes** (diferencia central, con replicación de borde igual que `denoise.ts` /
+`gaussian-blur.ts` — no padding de ceros, que inventaría un borde oscuro falso):
 
 ```
 Gx(x, y) = I(x+1, y) - I(x-1, y)
 Gy(x, y) = I(x, y+1) - I(x, y-1)
 ```
 
-**Magnitud y orientación:**
+**Magnitud y orientación** (gradiente "sin signo": se pliega a `[0°, 180°)` sumando 180°
+si es negativo, porque un trazo no tiene lado "positivo" — una línea a 10° y su opuesta a
+190° son el mismo trazo):
 
 ```
 magnitude(x, y)  = √(Gx² + Gy²)
-orientation(x, y) = atan2(Gy, Gx)   # en [0°, 180°) si se usa "unsigned gradient"
+orientation(x, y) = atan2(Gy, Gx),  +180° si < 0
 ```
 
-**Histograma por celda:** dividir la imagen del carácter en celdas de `c×c` píxeles; en
-cada celda, acumular `magnitude(x,y)` en `nbins` (ej. 9) bins de orientación, con
-interpolación bilineal opcional entre bins adyacentes.
+### Desviación del diseño original: grilla directa de regiones, no celdas + bloques con solape
 
-**Normalización por bloque:** agrupar celdas en bloques (ej. 2×2 celdas) y normalizar el
-vector concatenado del bloque con norma L2 (o L2-Hys, recortando valores altos y
-renormalizando):
+El diseño de Fase 0 (arriba) preveía celdas de `c×c` px agrupadas en bloques con solape,
+normalizados por bloque (esquema clásico de Dalal & Triggs). Con los parámetros pedidos
+para esta fase (celdas de 4px → grilla 8×8, bloques de 2×2 celdas con solape del 50%) el
+descriptor completo da correctamente 49 bloques × (2×2 celdas × 9 bins) = **1764**
+valores — pero de ahí **no hay ninguna reducción limpia a 108**: 1764 no es divisible en
+un número de grupos que dé una grilla entera, y `108 / 9 bins = 12` regiones tampoco
+factoriza en potencias de 2 (los únicos divisores enteros de 32px). Construir el HOG
+completo de 1764-dim solo para descartarlo con un sub-muestreo arbitrario habría sido
+complejidad sin uso real (`CLAUDE.md` §9 — evitar sobrearquitectura).
+
+En su lugar, `extractHOG` divide la imagen directamente en una grilla de
+`HOG_GRID_COLS × HOG_GRID_ROWS` = 4×3 = **12 regiones** (`OCR_CONFIG`), límites por
+`Math.floor(i·dimensión/divisiones)` — deterministas, no necesariamente todas del mismo
+tamaño en píxeles si la dimensión no es múltiplo exacto (32/4=8px por columna, exacto;
+32/3≈10.67px por fila, columnas de 10/11/11px). Sin etapa de bloques con solape: cada
+región se normaliza por sí sola. Mismo total que pedía el diseño original
+(**12 × 9 = 108**), mismas fórmulas de gradiente/orientación/histograma, sin la
+complejidad de una etapa de bloques que no alimentaba ninguna reducción de dimensión
+real en este esquema.
+
+**Histograma por región:** para cada píxel de la región, vota en el bin de orientación
+más cercano (sin interpolación bilineal entre bins — votación simple, más fácil de
+verificar a mano), ponderado por su magnitud:
 
 ```
-v' = v / √(‖v‖² + ε²)
+binWidth = 180° / orientationBins   # 20° con 9 bins
+binIndex(x, y) = round(orientation(x, y) / binWidth) mod orientationBins
+histograma[binIndex] += magnitude(x, y)
 ```
 
-El vector de características final es la concatenación de todos los bloques
-normalizados. Todos los parámetros (`c`, `nbins`, tamaño de bloque, `ε`) se fijan
-experimentalmente en Fase 4c y se documentan aquí con su justificación una vez elegidos.
+**Normalización L2 por región** (no por bloque, ver desviación arriba):
 
-## 13. k-Nearest Neighbors (propio) — Fase 4c, diseño
+```
+normalizado = histograma / (‖histograma‖₂ + epsilon)     # epsilon = OCR_CONFIG.HOG_EPSILON = 0.001
+```
+
+El descriptor final concatena las 12 regiones (fila por fila) → **108 valores**
+(`OCR_CONFIG.HOG_GRID_COLS × HOG_GRID_ROWS × HOG_ORIENTATION_BINS`).
+
+### Ejemplo numérico (verificado en `hog-extractor.test.ts`)
+
+Imagen 8×8, brillante (255) donde `x > y`, negra (0) donde no — un borde diagonal `\`
+de esquina superior-izquierda a inferior-derecha, con una sola región (`gridCols=1,
+gridRows=1`) cubriendo toda la imagen. Para el píxel interior `(4,4)` (sobre el borde):
+
+```
+izquierda (3,4): 3>4? no  -> 0        derecha (5,4): 5>4? sí -> 255    Gx = 255-0 = 255
+arriba    (4,3): 4>3? sí  -> 255      abajo   (4,5): 4>5? no -> 0      Gy = 0-255 = -255
+
+magnitude = √(255² + 255²) = 255√2 ≈ 360.6
+orientation = atan2(-255, 255) = -45°  ->  plegado: -45+180 = 135°
+binIndex = round(135 / 20) = round(6.75) = 7   (centro del bin: 140°, el más cercano a 135° con paso de 20°)
+```
+
+Los demás píxeles interiores sobre la diagonal producen el mismo patrón (`Gx>0, Gy<0`,
+orientación ≈135°), así que el bin 7 domina claramente el histograma de la única
+región — verificado en el test comprobando que `argmax(descriptor) === 7`. Un borde
+vertical puro (mitad izquierda negra, mitad derecha blanca) da `Gy=0`, `orientation=0°`,
+bin 0 — verificado igual.
+
+Caso degenerado (imagen completamente uniforme): todos los gradientes son `(0,0)`,
+magnitud 0 en todo punto, histograma todo en cero, `normalizado = 0/(0+epsilon) = 0` —
+no produce `NaN` ni división por cero, verificado en el test.
+
+## 13. k-Nearest Neighbors (propio) — `knn-classifier.ts` (Fase 4c, implementado)
 
 **Distancia** entre vector de características de entrada `q` y cada muestra de
-entrenamiento `s_i` — distancia euclidiana como base:
+entrenamiento `s_i` — distancia euclidiana:
 
 ```
 d(q, s_i) = √( Σ_j (q_j - s_i,j)² )
 ```
 
-**Selección de vecinos:** los `k` vectores de entrenamiento con menor `d`.
+**Selección de vecinos:** los `k` vectores de entrenamiento con menor `d`
+(`OCR_CONFIG.KNN_K = 3` por defecto).
 
-**Votación ponderada** (pesa más a los vecinos más cercanos, mitiga empates ingenuos):
+**Votación ponderada** (un vecino muy cercano puede superar a varios vecinos lejanos de
+otra clase — a diferencia de un conteo simple de votos por mayoría):
 
 ```
-weight_i = 1 / (d(q, s_i) + ε)
+weight_i = 1 / (d(q, s_i) + epsilon)              # epsilon = OCR_CONFIG.KNN_EPSILON = 0.001
 score(class) = Σ_{i : label(s_i) = class} weight_i
+confidence(class) = score(class) / Σ_class' score(class')
 ```
 
-La clase predicha es `argmax_class score(class)`. `k` y `ε` se fijan experimentalmente
-en Fase 4c sobre el conjunto de `validation` (nunca `test`).
+La clase predicha es `argmax_class score(class)`; `confidence` es la proporción del peso
+total que se llevó — `1` si los `k` vecinos son unánimes, más baja cuanto más repartido
+esté el voto entre clases distintas. `KNNClassifier.predict` expone además `topN`: todas
+las labels distintas entre los `k` vecinos con su `confidence`, ordenadas descendente
+(`topN[0]` es siempre la predicción ganadora).
 
-## 14. Confidence score (fórmula) — Fase 4c/4e, diseño
+### Ejemplo numérico — votación ponderada gana sobre conteo simple (verificado en `knn-classifier.test.ts`)
+
+Query en `0`. Vecino `A` en `1` (distancia 1). Dos vecinos `B` en `10` y `-11`
+(distancias 10 y 11). `k=3` — entran los tres:
+
+```
+weight_A  = 1 / (1  + 0.001)  ≈ 0.99900
+weight_B1 = 1 / (10 + 0.001)  ≈ 0.09999
+weight_B2 = 1 / (11 + 0.001)  ≈ 0.09090
+score(A) = 0.99900        score(B) = 0.09999 + 0.09090 = 0.19089
+```
+
+`score(A) > score(B)` pese a que `B` tiene 2 votos contra 1 de `A` — el vecino mucho más
+cercano domina. `confidence = 0.99900 / (0.99900 + 0.19089) ≈ 0.8397`.
+
+`k` y `epsilon` son puntos de partida (`OCR_CONFIG`, documentados igual que el resto de
+parámetros del pipeline) — se recalibran con el conjunto `validation` cuando exista
+dataset real (Fase 4d), nunca con `test`.
+
+## 14. Confidence score (fórmula) — Fase 4c (agreement) implementado / Fase 4e (blend), diseño
 
 Confianza por carácter, combinando consistencia del voto kNN y cercanía del vecino más
 próximo (ambas señales reales del clasificador, no arbitrarias):
@@ -442,6 +521,13 @@ agreement(char)  = score(clase_ganadora) / Σ_class score(class)   # ∈ [0,1]
 proximity(char)  = 1 / (1 + d(q, vecino_más_cercano))               # ∈ (0,1]
 confidence(char) = α · agreement(char) + (1-α) · proximity(char)
 ```
+
+`agreement(char)` **ya está implementado** — es exactamente `KNNClassifier.predict().confidence`
+(§13). La mezcla con `proximity` (que además pesa qué tan cerca en términos absolutos
+está el vecino ganador, no solo su peso relativo frente a las otras clases) queda para
+cuando el pipeline completo (Fase 4e) tenga campos reales sobre los que calibrar `α` con
+datos de `validation` — usar solo `agreement` por ahora no es arbitrario, es la señal que
+ya existe; `α=1` implícito hasta entonces.
 
 Confianza por campo (RF-003/sección 18), combinando confianza promedio de los
 caracteres del campo y coherencia con el patrón esperado del campo (ej. `fecha` matchea
@@ -470,8 +556,13 @@ Los ejemplos numéricos de este documento están tomados directamente de los tes
 correspondientes, no inventados aparte — si el código cambia, estos ejemplos deben
 volver a verificarse contra los tests, no al revés.
 
-**Secciones 12–14 (HOG, kNN, confidence) siguen siendo fórmulas de diseño, no
-implementadas.** Ninguna cifra de precisión, tiempo de procesamiento o valor de
-parámetro (`k`, `α`, `β`, tamaño de celda, etc.) es válida hasta calibrarse
-experimentalmente en Fase 4c y reportarse en `docs/ocr/evaluation.md` con el conjunto
-`test`.
+**Secciones 12–13 (HOG, kNN) y el componente `agreement` de la sección 14: implementadas
+y verificadas por unit test desde Fase 4c** (`src/modules/ocr/classification/`, 23
+tests). La mezcla `agreement`/`proximity` con `α`, y la fórmula de confianza por campo
+(`β`) siguen siendo diseño para Fase 4e. Ningún valor de `k`, `epsilon`, tamaño de
+grilla, etc. está calibrado contra datos reales — son puntos de partida documentados en
+`OCR_CONFIG` (`modules/ocr/config.ts`), no resultados medidos; los tests de esta fase
+usan datos sintéticos (`CLAUDE.md` §7 y el prompt de Fase 4c). El modelo real nace en
+Fase 4d con dataset etiquetado de facturas de Mansor vía OCR LAB, y las cifras de
+precisión reales se reportan en `docs/ocr/evaluation.md` sobre el conjunto `test`
+únicamente.

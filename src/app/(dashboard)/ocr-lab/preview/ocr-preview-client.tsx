@@ -16,6 +16,7 @@ import { extractWordsFromLine, type WordRegion } from "@/modules/ocr/segmentatio
 import { extractCharactersFromWord, type CharacterRegion } from "@/modules/ocr/segmentation/extract-characters";
 import { normalizeCharacter } from "@/modules/ocr/segmentation/normalize-character";
 import { OCR_CONFIG } from "@/modules/ocr/config";
+import { CharacterThumbnail, drawImageDataToCanvas } from "@/app/(dashboard)/ocr-lab/_components/canvas-utils";
 
 const HISTOGRAM_CANVAS_HEIGHT = 120;
 const COMPONENT_COLORS = ["#ef4444", "#3b82f6", "#22c55e", "#f97316", "#a855f7", "#06b6d4", "#eab308"];
@@ -85,14 +86,6 @@ function computeDebugStats(currentImage: ImageData): DebugStats {
     textRows,
     lineRunsFromProjection,
   };
-}
-
-function drawImageDataToCanvas(canvas: HTMLCanvasElement | null, imageData: ImageData) {
-  if (!canvas) return;
-  canvas.width = imageData.width;
-  canvas.height = imageData.height;
-  const ctx = canvas.getContext("2d");
-  ctx?.putImageData(imageData, 0, 0);
 }
 
 function drawHistogram(canvas: HTMLCanvasElement | null, histogram: number[]) {
@@ -589,20 +582,5 @@ export function OcrPreviewClient() {
         </>
       ) : null}
     </div>
-  );
-}
-
-function CharacterThumbnail({ imageData }: { imageData: ImageData }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    drawImageDataToCanvas(ref.current, imageData);
-  }, [imageData]);
-
-  return (
-    <canvas
-      ref={ref}
-      className="h-8 w-8 rounded border border-neutral-300 bg-black dark:border-neutral-700"
-      style={{ imageRendering: "pixelated" }}
-    />
   );
 }
