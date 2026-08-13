@@ -44,3 +44,20 @@ export interface SaveSyntheticModelResult {
   modelId: string;
   version: string;
 }
+
+/** Fila de `ocr_models` tal como la muestra `/admin/models` (Fase 6) -- sin `model_data` (puede pesar bastante, la vista de lista no lo necesita). */
+export interface OcrModelSummary {
+  id: string;
+  documentType: string;
+  version: string;
+  active: boolean;
+  createdAt: string;
+  metrics: {
+    accuracy: number | null;
+    trainCount?: number;
+    testCount?: number;
+    classes?: number;
+    trainingTimeMs?: number;
+    source?: string;
+  };
+}

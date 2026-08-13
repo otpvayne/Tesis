@@ -9,6 +9,7 @@ import {
   DATASET_PARTITIONS,
   type DatasetStats,
   type LabeledSampleInput,
+  type OcrModelSummary,
   type SaveLabeledSamplesResult,
   type SaveSyntheticModelInput,
   type SaveSyntheticModelResult,
@@ -297,6 +298,58 @@ export async function activateModel(modelId: string): Promise<void> {
   });
 
   revalidatePath("/ocr-lab/train");
+  revalidatePath("/admin/models");
+}
+
+/**
+ * Desactiva un modelo sin activar ningún otro en su lugar -- a diferencia
+ * de `activateModel`, que siempre deja exactamente uno activo por
+ * `document_type`, esto puede dejar un `document_type` sin ningún modelo
+ * activo a propósito (ej. el admin decide que ninguno de los disponibles
+ * sirve todavía). `/api/ocr/active-model` ya maneja ese caso con un 404
+ * explícito.
+ */
+export async function deactivateModel(modelId: string): Promise<void> {
+  const { supabase, userId } = await requireAdmin();
+
+  const { data: model, error: fetchError } = await supabase.from("ocr_models").select("id, document_type, version").eq("id", modelId).single();
+  if (fetchError || !model) {
+    throw new Error(`Modelo no encontrado: ${fetchError?.message ?? modelId}`);
+  }
+
+  const { error: updateError } = await supabase.from("ocr_models").update({ active: false }).eq("id", modelId);
+  if (updateError) {
+    throw new Error(`No se pudo desactivar el modelo: ${updateError.message}`);
+  }
+
+  await logAuditEvent(supabase, {
+    actorId: userId,
+    action: "MODEL_DEACTIVATED",
+    metadata: { document_type: model.document_type, version: model.version, modelId },
+  });
+
+  revalidatePath("/ocr-lab/train");
+  revalidatePath("/admin/models");
+}
+
+/** Lista todos los modelos de `document_type="invoice_es"` (activos e históricos) para `/admin/models` -- sin `model_data`, puede pesar bastante y la vista de lista no lo necesita. */
+export async function listAllModels(): Promise<OcrModelSummary[]> {
+  const { supabase } = await requireAdmin();
+
+  const { data, error } = await supabase.from("ocr_models").select("id, document_type, version, active, created_at, metrics").eq("document_type", DOCUMENT_TYPE).order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`No se pudieron listar los modelos: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    documentType: row.document_type,
+    version: row.version,
+    active: row.active,
+    createdAt: row.created_at,
+    metrics: (row.metrics ?? {}) as OcrModelSummary["metrics"],
+  }));
 }
 
 export interface CharacterEvaluationResult {

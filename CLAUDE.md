@@ -238,10 +238,25 @@ servidor de desarrollo o herramientas de navegador en esta sesión (sección 11)
 
 ## 13. Estado actual
 
-Fase activa: **Fase 5 — Validación humana (UI + base de datos)** (en cierre, esperando
-aprobación). Fases 0, 1, 2, 3, 4a, 4b, 4c, 4d, 4e y 4f integradas a `main` (tag
-`v0.4.0-ocr`). Ver `docs/roadmap.md` para el plan de fases siguientes y
+Fase activa: **Fase 6 — Administración (vistas + reportes)** (en cierre, esperando
+aprobación). Fases 0, 1, 2, 3, 4a-4f y 5 integradas a `main` (tag `v0.4.0-ocr` para el
+cierre de Fase 4). Ver `docs/roadmap.md` para el plan de fases siguientes y
 `docs/requirements/traceability.md` para el estado por requerimiento.
+
+**Fase 6 agrega `/admin` (dashboard con KPIs reales), extiende `/admin/documents`
+(confidence OCR, búsqueda por id), renombra `/admin/validation-dashboard` →
+`/admin/validations` (+ ediciones por usuario y tendencia real), y agrega
+`/admin/models` (activar/desactivar modelos) y `/admin/reports` (CSV/JSON
+descargables vía Route Handlers).** `src/proxy.ts` ahora redirige a `/login` en
+`/admin/*` sin sesión (chequeo optimista, sin verificar rol — la guía oficial de Next
+16 advierte evitar consultas a la base ahí; el rol se sigue verificando por página +
+RLS). Ese archivo **ya existía** desde Fase 1 con otro nombre (Next 16 renombró
+`middleware.ts` a `proxy.ts`) — se sobreescribió sin leerlo primero por buscar el
+nombre viejo, error de proceso detectado a tiempo (el resultado es aditivo, no se
+perdió lógica). Ninguna cifra de ejemplo del enunciado (ej. "Accuracy 41%") se usó —
+todo sale de la base real. Detalle completo, incluida la razón por la que `id::text`
++ `ilike` no funciona en este proyecto Supabase, en
+`docs/requirements/traceability.md`, sección "Entregables técnicos de Fase 6".
 
 **Fase 5 reutiliza `document_validations` en vez de recrearla:** esa tabla ya existía
 desde el bootstrap de Fase 1, con un esquema distinto al que pedía el enunciado de esta

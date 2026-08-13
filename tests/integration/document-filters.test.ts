@@ -79,6 +79,7 @@ beforeAll(async () => {
       proveedor: { value: "Acme Corp", confidence: 0.9, sourceRegion: {} },
       total: { value: "150000", confidence: 0.9, sourceRegion: {} },
     },
+    confidence: 0.87,
   });
   if (ocrErr) throw ocrErr;
 }, 30000);
@@ -149,5 +150,56 @@ describe("listDocuments: filtro por monto (join con ocr_results, cast numeric)",
       filters: { minAmount: 200000 },
     });
     expect(result.items).toHaveLength(0);
+  });
+});
+
+describe("listDocuments: búsqueda por id exacto (vista admin, Fase 6)", () => {
+  it("devuelve solo el documento cuyo id coincide exactamente", async () => {
+    const result = await listDocuments(client, {
+      ownerId: userId,
+      filters: { search: docProcessed },
+    });
+    expect(result.items.map((d) => d.id)).toEqual([docProcessed]);
+  });
+
+  it("no devuelve nada si el id no matchea", async () => {
+    const result = await listDocuments(client, {
+      ownerId: userId,
+      filters: { search: "00000000-0000-0000-0000-000000000000" },
+    });
+    expect(result.items).toHaveLength(0);
+  });
+
+  it("un valor sin forma de UUID se ignora en vez de lanzar", async () => {
+    const result = await listDocuments(client, {
+      ownerId: userId,
+      filters: { search: "no-es-un-uuid" },
+    });
+    expect(result.items.length).toBeGreaterThan(0);
+  });
+});
+
+describe("listDocuments: includeOcrConfidence (vista admin, Fase 6)", () => {
+  it("embebe confidence/created_at de ocr_results cuando se pide", async () => {
+    const result = await listDocuments(client, {
+      ownerId: userId,
+      filters: { status: "processed" },
+      includeOcrConfidence: true,
+    });
+    expect(result.items).toHaveLength(1);
+    const doc = result.items[0] as unknown as { ocr_results: { confidence: number | null; created_at: string }[] };
+    expect(doc.ocr_results).toHaveLength(1);
+    expect(doc.ocr_results[0].confidence).toBeCloseTo(0.87);
+  });
+
+  it("un documento sin ocr_results trae un arreglo vacío, no rompe", async () => {
+    const result = await listDocuments(client, {
+      ownerId: userId,
+      filters: { status: "uploaded" },
+      includeOcrConfidence: true,
+    });
+    expect(result.items).toHaveLength(1);
+    const doc = result.items[0] as unknown as { ocr_results: { confidence: number | null; created_at: string }[] };
+    expect(doc.ocr_results).toEqual([]);
   });
 });
