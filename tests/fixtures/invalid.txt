@@ -1,0 +1,1 @@
+Este no es un archivo de imagen válido -- usado por tests/security/security.test.ts para verificar que la validación de MIME/magic-bytes (modules/documents/validation.ts) rechaza archivos que no son JPG/PNG.

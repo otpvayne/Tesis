@@ -5,21 +5,24 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 6 — Administración: vistas + reportes (en cierre).** Sobre el
-> motor OCR completo (Fase 4, tag `v0.4.0-ocr`) y la validación humana (Fase 5, RF-007),
-> esta fase agrega el área `/admin/*` completa: `/admin` (dashboard con KPIs reales y
-> gráfico de documentos/día), `/admin/documents` (ahora con confidence OCR y búsqueda
-> por ID), `/admin/validations` (antes `validation-dashboard`, + ediciones por usuario y
-> tendencia diaria real), `/admin/models` (activar/desactivar modelos) y
-> `/admin/reports` (CSV/JSON descargables, sin librerías nuevas — CSV escrito a mano),
-> 302 tests. `src/proxy.ts` redirige a `/login` en `/admin/*` sin sesión — chequeo
-> optimista únicamente, sin verificar rol (el rol se sigue validando por página + RLS,
-> siguiendo la guía oficial de Next 16). Ninguna cifra de ejemplo del enunciado se usó;
-> todo sale de la base real. Detalle completo, incluidas las desviaciones técnicas
-> (por qué `/admin/documents` busca por ID exacto y no por subcadena, entre otras), en
-> `docs/requirements/traceability.md` ("Entregables técnicos de Fase 6"). El modelo OCR
-> activado en Fase 5 sigue con accuracy real de **16.1%** (sintético) — reentrenar con
-> caracteres reales en `/ocr-lab/train` sigue pendiente. Ver
+> Estado actual: **Fase 7 — Testing completo: E2E + performance + seguridad (en
+> cierre).** Sobre el motor OCR (Fase 4), la validación humana (Fase 5) y el área admin
+> (Fase 6), esta fase se topó de inmediato con `CLAUDE.md` §11 (nunca correr
+> servidor/navegador en esta sesión) — el enunciado pedía Playwright contra el deploy
+> real reportando "tests pasados", imposible de cumplir honestamente aquí. Enfoque
+> acordado con el equipo: **323 tests reales ejecutados** (Vitest, 52 archivos,
+> 95.1% statement coverage de los módulos con tests — Server Actions/Route
+> Handlers/páginas quedan fuera por depender de `next/headers`), incluyendo un gap real
+> de seguridad cerrado (`ocr_models`/`ocr_training_samples`, RLS admin-only desde
+> Fase 1, nunca antes probada contra una sesión real — ahora 11/11); **4 archivos
+> Playwright** (`tests/{e2e,performance,security,regression}/`) escritos y corregidos
+> contra el código real pero **no ejecutados** (requieren navegador + credenciales de
+> prueba reales que el equipo debe crear); y **`tests/MANUAL_CHECKLIST.md`** para
+> verificar en un navegador/celular real. Ninguna cifra de "test pasado" se afirma sin
+> haberse corrido de verdad. Detalle completo en `docs/requirements/traceability.md`
+> ("Entregables técnicos de Fase 7"). El modelo OCR activado en Fase 5 sigue con
+> accuracy real de **16.1%** (sintético) — reentrenar con caracteres reales en
+> `/ocr-lab/train` sigue pendiente. Ver
 > [`docs/roadmap.md`](docs/roadmap.md) y `CLAUDE.md` §13 para desviaciones pendientes.
 
 ## Equipo
@@ -74,7 +77,12 @@ cp .env.example .env.local   # completar con las claves reales del proyecto Supa
 npm run dev                  # http://localhost:3000
 npm run lint
 npm run test                 # unit + integration (integration requiere .env.local)
+npm run test:coverage        # igual, con reporte de cobertura (@vitest/coverage-v8)
 npm run build
+
+# E2E/performance/seguridad (Fase 7, no ejecutados en la sesión que los escribió):
+npx playwright install chromium
+E2E_BASE_URL=http://localhost:3000 npx playwright test   # con npm run dev corriendo
 ```
 
 El stack local de Supabase (`supabase start`) requiere Docker Desktop, no disponible en

@@ -1,22 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth/require-admin-page";
 import { toCsv } from "@/modules/admin/csv";
-import { VALIDATION_FIELD_LABELS } from "@/lib/constants/document-display";
-import { VALIDATION_FIELDS, type ValidationFieldName } from "@/modules/documents/validation-types";
+import { buildValidationsReportRows, VALIDATIONS_REPORT_HEADERS, type ValidationsReportRow } from "@/modules/admin/reports";
 
-interface ReportRow {
-  document_id: string;
-  original_extracted_data: unknown;
-  validated_data: unknown;
-  validated_at: string;
-  validator: { email: string } | null;
-}
-
-function fieldValue(data: unknown, field: ValidationFieldName): unknown {
-  return (data as Partial<Record<ValidationFieldName, unknown>> | null)?.[field] ?? null;
-}
-
-/** CSV descargable: una fila por campo por validación (RF-007, trazabilidad original vs. validado, vista admin Fase 6) -- los 6 campos de cada validación, no solo los editados, para que el CSV sea una auditoría completa. */
+/** CSV descargable: una fila por campo por validación (RF-007, vista admin Fase 6). Lógica de armado de filas en `modules/admin/reports.ts` (testeada), este handler solo hace el fetch + responde. */
 export async function GET() {
   const admin = await requireAdminApi();
   if (!admin) {
@@ -32,24 +19,8 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const rows = (data ?? []) as unknown as ReportRow[];
-
-  const csvRows = rows.flatMap((row) =>
-    VALIDATION_FIELDS.map((field) => {
-      const original = fieldValue(row.original_extracted_data, field);
-      const validated = fieldValue(row.validated_data, field);
-      return [
-        row.document_id,
-        VALIDATION_FIELD_LABELS[field],
-        original === null ? "" : String(original),
-        validated === null ? "" : String(validated),
-        row.validator?.email ?? "",
-        row.validated_at,
-      ];
-    }),
-  );
-
-  const csv = toCsv(["DocumentoID", "Campo", "ValorOCR", "ValorValidado", "EditadoPor", "FechaValidación"], csvRows);
+  const csvRows = buildValidationsReportRows((data ?? []) as unknown as ValidationsReportRow[]);
+  const csv = toCsv(VALIDATIONS_REPORT_HEADERS, csvRows);
 
   return new NextResponse(csv, {
     headers: {

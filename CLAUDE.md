@@ -238,10 +238,23 @@ servidor de desarrollo o herramientas de navegador en esta sesión (sección 11)
 
 ## 13. Estado actual
 
-Fase activa: **Fase 6 — Administración (vistas + reportes)** (en cierre, esperando
-aprobación). Fases 0, 1, 2, 3, 4a-4f y 5 integradas a `main` (tag `v0.4.0-ocr` para el
-cierre de Fase 4). Ver `docs/roadmap.md` para el plan de fases siguientes y
-`docs/requirements/traceability.md` para el estado por requerimiento.
+Fase activa: **Fase 7 — Testing completo (E2E + performance + seguridad)** (en cierre,
+esperando aprobación). Fases 0, 1, 2, 3, 4a-4f, 5 y 6 integradas a `main` (tag
+`v0.4.0-ocr` para el cierre de Fase 4). Ver `docs/roadmap.md` para el plan de fases
+siguientes y `docs/requirements/traceability.md` para el estado por requerimiento.
+
+**Fase 7 chocó con `CLAUDE.md` §11 desde el primer momento**: el enunciado pedía correr
+Playwright contra el deploy de Vercel y reportar tests E2E/performance/seguridad
+"pasados" — confirmado explícitamente con el equipo antes de proceder, se dividió en
+(1) regresión + gaps de cobertura reales con Vitest (sí ejecutado: 323/323 tests, 95.1%
+statement coverage de los módulos con tests — Server Actions/Route Handlers/`page.tsx`
+quedan fuera de ese cálculo por depender de `next/headers`), (2) 4 archivos Playwright
+escritos y corregidos contra el código real pero **nunca ejecutados** en esta sesión, y
+(3) `tests/MANUAL_CHECKLIST.md` para que el equipo verifique en un navegador real. Gaps
+reales de seguridad cerrados: `ocr_models`/`ocr_training_samples` (RLS admin-only desde
+Fase 1) nunca se habían probado contra una sesión real — ahora sí, 11/11 contra
+Supabase real. Detalle completo en `docs/requirements/traceability.md`, sección
+"Entregables técnicos de Fase 7".
 
 **Fase 6 agrega `/admin` (dashboard con KPIs reales), extiende `/admin/documents`
 (confidence OCR, búsqueda por id), renombra `/admin/validation-dashboard` →
