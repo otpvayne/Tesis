@@ -12,8 +12,8 @@ import { createImageData } from "@/modules/ocr/preprocessing/create-image-data";
  * `decodeImage`.
  *
  * No arranca desde un archivo PNG real: eso requeriría `decodeImage`
- * (createImageBitmap + canvas real), que jsdom no implementa — ver la
- * nota de cobertura en `decode-image.test.ts`. Este test cubre en cambio
+ * (`createImageBitmap`, que jsdom sigue sin implementar) — ver la nota de
+ * cobertura en `decode-image.test.ts`. Este test cubre en cambio
  * exactamente lo que sí es 100% real y verificable sin navegador: que las
  * cuatro funciones de transformación de `ImageData` encadenadas producen
  * una imagen binaria válida, consistente en tamaño con la entrada.

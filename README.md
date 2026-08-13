@@ -16,9 +16,15 @@ Mansor, en conjunto con NETRIX Corporation.
 > Persistencia y RLS **verificadas contra Supabase real**
 > (`tests/integration/document-validations-rls.test.ts`, 10/10); la interacción de UI
 > en navegador (edición inline, colores, botones) queda como checklist manual para
-> Andres/Santiago — no se puede automatizar en esta sesión (`CLAUDE.md` §11). Ningún
-> modelo OCR está activado todavía — el equipo debe correr `/ocr-lab/train` y activar
-> uno antes de que "Procesar documento" funcione de extremo a extremo. Ver
+> Andres/Santiago — no se puede automatizar en esta sesión (`CLAUDE.md` §11). **Hay un
+> modelo OCR activado** (por primera vez) generado con `npm run generate:model`
+> (síntesis + entrenamiento de Fase 4d corridos en Node vía `node-canvas`, no en
+> navegador) — "Procesar documento" ya no da 404, pero su accuracy real medida es
+> **16.1%** (62 clases, muy por debajo del umbral de calidad del propio código),
+> confusiones de glifos parecidos (C/G, S/5, I/l) — sirve para probar el flujo
+> completo, no como precisión usable; ver
+> `docs/requirements/traceability.md` ("Modelo OCR inicial activado"). Reentrenar con
+> caracteres reales en `/ocr-lab/train` sigue pendiente y sigue siendo necesario. Ver
 > [`docs/roadmap.md`](docs/roadmap.md) y `CLAUDE.md` §13 para desviaciones pendientes.
 
 ## Equipo

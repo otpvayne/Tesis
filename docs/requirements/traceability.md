@@ -454,3 +454,53 @@ Santiago en `/documents/[id]` después de procesar una factura:
    validación.
 8. `/admin/validation-dashboard` (con un usuario ADMIN) muestra el conteo real después
    de validar al menos un documento.
+
+## Modelo OCR inicial activado (post-cierre de Fase 5)
+
+Al cerrar Fase 5 se confirmó contra Supabase real que `ocr_training_samples` y
+`ocr_models` estaban **completamente vacías** (0 filas en ambas) — nadie había podido
+correr `/ocr-lab/train` en un navegador real todavía, así que `GET
+/api/ocr/active-model` siempre devolvía 404 y "Procesar documento" nunca funcionaba de
+extremo a extremo, pese a que toda esa infraestructura ya estaba construida (tabla,
+endpoint, UI — Fase 4e).
+
+**Solución:** `dataset-synthesizer.ts` (Fase 4d) ya exponía `synthesizeDataset(config,
+{ renderer })` con el renderer inyectable — se implementó `nodeCharacterRenderer`
+(`src/modules/ocr/training/node-character-renderer.ts`) usando `node-canvas`, un
+polyfill de Canvas 2D para Node (misma API que `document.createElement("canvas")` en
+el navegador — permitido explícitamente por `CLAUDE.md` §7, no es una librería de
+OCR/CV). `bin/generate-initial-model.ts` (`npm run generate:model`) corre la síntesis
++ entrenamiento existentes (mismo código de `/ocr-lab/train`, sin duplicar lógica) y
+guarda + activa el modelo resultante en `ocr_models` vía `service_role`.
+
+**Resultado real, ejecutado contra el proyecto Supabase real:**
+
+```
+62 caracteres × 160 muestras/carácter = 9920 muestras sintéticas
+Accuracy: 16.1% (train=7936, test=1984, 62 clases, 201ms de entrenamiento)
+⚠ Por debajo del umbral MIN_ACCURACY_THRESHOLD=80% (generalizationWarning real, no ignorado)
+Modelo activado: ocr_models.id=08b45aee-8fce-493a-b9d5-431900f22b86
+```
+
+**16.1% es un número real medido, no estimado — y es bajo.** Es la primera vez que el
+pipeline de síntesis+entrenamiento de Fase 4d se ejecuta de punta a punta con cualquier
+motor de Canvas (nadie lo había corrido ni siquiera en navegador todavía), así que esto
+es información nueva sobre la calidad del dataset sintético, no un bug introducido por
+`node-canvas`. Diagnóstico de la matriz de confusión: las confusiones más frecuentes
+son pares de glifos genuinamente parecidos (`C→G`, `S→5`, `I→l`, `n→p`, `o→q`, `1→7`,
+`4→A`) — consistente con un problema real (62 clases, solo 3 fuentes visualmente
+distintas de las 4 configuradas ya que "Helvetica" no existe en Windows y cae a un
+fallback tipo Sans, y `DISTORTION_SKEW_RANGE=10` sobre un lienzo de 32px ya estaba
+documentado en `config.ts` como "shear agresivo... candidato a bajar"), no de un
+pipeline roto. **Este modelo desbloquea "Procesar documento" técnicamente (ya no da
+404) pero sus predicciones no son confiables** — sirve para probar que el flujo
+completo funciona de punta a punta, no como línea base de precisión real. El
+reentrenamiento con caracteres reales de facturas de Mansor (pendiente del equipo,
+`/ocr-lab/train`) sigue siendo necesario para un modelo usable.
+
+Archivos: `src/modules/ocr/training/node-character-renderer.ts`,
+`bin/generate-initial-model.ts`. Tests:
+`tests/unit/modules/ocr/training/node-character-renderer.test.ts` (3/3 — el único
+componente nuevo testeable en Vitest; `bin/generate-initial-model.ts` es wiring de
+script/DB igual que las demás Server Actions de este proyecto, sin test automatizado
+por el mismo criterio ya aplicado a `training-actions.ts`/`document-processing.ts`).

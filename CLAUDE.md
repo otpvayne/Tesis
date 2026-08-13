@@ -260,6 +260,17 @@ Persistencia y RLS sí están **VERIFIED** contra Supabase real
 (`tests/integration/document-validations-rls.test.ts`, 10/10). Checklist manual para
 Andres/Santiago en `docs/requirements/traceability.md`.
 
+**Modelo OCR activado por primera vez (post-cierre de Fase 5), con accuracy real baja:**
+`ocr_training_samples`/`ocr_models` estaban completamente vacías — se agregó
+`node-canvas` (polyfill de Canvas 2D para Node, permitido por §7, no es librería de
+OCR/CV) para correr `synthesizeDataset`/`trainModel` (Fase 4d) fuera del navegador
+(`bin/generate-initial-model.ts`, `npm run generate:model`) y activar el resultado.
+Accuracy real medida: **16.1%** (62 clases, muy por debajo del umbral 80% del propio
+código) — confusiones de glifos genuinamente parecidos (C/G, S/5, I/l, o/q), no un
+pipeline roto. Desbloquea "Procesar documento" técnicamente (ya no 404) pero las
+predicciones no son confiables todavía — ver detalle en
+`docs/requirements/traceability.md`, sección "Modelo OCR inicial activado".
+
 **Fase 4f no tiene datos reales que evaluar todavía (sin cambios desde su cierre):** se construyó la infraestructura
 completa (`modules/ocr/evaluation/`: métricas de caracteres, extracción de campos,
 benchmark, reproducibilidad, generador de reporte) y una evaluación real contra el
