@@ -155,7 +155,7 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
   }));
 
   return (
-    <div className="animate-fade-in flex flex-col gap-4 rounded-lg border-2 border-brand-200 bg-brand-50/40 p-6 dark:border-brand-800 dark:bg-brand-950/20">
+    <div className="animate-fade-in flex flex-col gap-4 rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
       <div>
         <h2 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-50">Validación de campos (Fase 5)</h2>
         <p className="text-xs text-neutral-600 dark:text-neutral-400">
@@ -167,7 +167,7 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
       {/* Desktop (md+): tabla real, sin scroll horizontal -- todas las columnas caben a partir de 768px. */}
       <table className="hidden w-full text-left text-sm md:table">
         <thead>
-          <tr className="text-xs text-neutral-600 dark:text-neutral-400">
+          <tr className="bg-neutral-50 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
             <th className="w-[120px] pb-1 pr-2">Campo</th>
             <th className="pb-1 pr-2">Valor OCR</th>
             <th className="w-[150px] pb-1 pr-2">Confianza</th>
@@ -181,7 +181,7 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
             return (
               <tr
                 key={f.field}
-                className="h-12 border-t border-neutral-200 transition-colors hover:bg-white/60 dark:border-neutral-800 dark:hover:bg-neutral-950/30"
+                className="h-12 border-t border-neutral-200 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800"
               >
                 <td className="py-2 pr-2 font-semibold text-neutral-700 dark:text-neutral-300">{VALIDATION_FIELD_LABELS[f.field]}</td>
                 <td className="py-2 pr-2">
@@ -246,7 +246,7 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
         {rows.map(({ f, index, statusDisplay, isEditingThis, isMonospaceDisplay }) => {
           const StatusIcon = statusDisplay.icon;
           return (
-            <div key={f.field} className="flex flex-col gap-2 rounded-md border border-neutral-200 bg-white/60 p-3 dark:border-neutral-800 dark:bg-neutral-950/30">
+            <div key={f.field} className="flex flex-col gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-neutral-700 dark:text-neutral-300">{VALIDATION_FIELD_LABELS[f.field]}</span>
                 <span className={`inline-flex items-center gap-1 text-sm ${statusDisplay.className}`}>
