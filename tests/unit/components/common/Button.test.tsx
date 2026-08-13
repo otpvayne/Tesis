@@ -36,6 +36,15 @@ describe("Button", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it("variant=outline aplica borde y texto de marca, sin relleno por defecto", () => {
+    render(<Button variant="outline">Editar</Button>);
+    const classes = screen.getByRole("button", { name: "Editar" }).className.split(/\s+/);
+    expect(classes).toContain("border-brand-500");
+    expect(classes).toContain("text-brand-600");
+    expect(classes).not.toContain("bg-brand-600");
+    expect(classes).toContain("hover:bg-brand-600");
+  });
+
   it("acepta className extra sin perder las clases base", () => {
     render(<Button className="w-full">Full width</Button>);
     const className = screen.getByRole("button", { name: "Full width" }).className;

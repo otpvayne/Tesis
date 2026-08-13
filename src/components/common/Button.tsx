@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from "react";
 
-export type ButtonVariant = "primary" | "secondary" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "outline";
 export type ButtonSize = "sm" | "md";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -14,6 +14,8 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
     "border border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:text-neutral-400 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-900",
   danger:
     "border border-critical-500 text-critical-600 hover:bg-critical-50 disabled:text-critical-300 disabled:border-critical-200 dark:border-critical-700 dark:text-critical-400 dark:hover:bg-critical-900/20",
+  outline:
+    "border border-brand-500 text-brand-600 hover:bg-brand-600 hover:text-white disabled:border-brand-200 disabled:text-brand-300 dark:border-brand-600 dark:text-brand-400 dark:hover:bg-brand-600 dark:hover:text-white",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {

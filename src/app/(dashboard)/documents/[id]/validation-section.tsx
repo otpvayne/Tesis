@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/common/Button";
 import { ConfidenceBar } from "@/components/validation/ConfidenceBar";
+import { CheckIcon } from "@/components/icons/CheckIcon";
+import { EditIcon } from "@/components/icons/EditIcon";
+import { PendingIcon } from "@/components/icons/PendingIcon";
+import type { IconProps } from "@/components/icons/CheckIcon";
 import { VALIDATION_FIELD_LABELS } from "@/lib/constants/document-display";
 import { computeConfidenceLevel, parseFieldValue } from "@/modules/documents/validation-logic";
 import { saveValidation, rejectDocument } from "@/modules/documents/save-validation";
-import { NUMERIC_VALIDATION_FIELDS, type FieldValue, type ValidationFieldInput, type ValidationFieldName } from "@/modules/documents/validation-types";
+import type { FieldValue, ValidationFieldInput, ValidationFieldName } from "@/modules/documents/validation-types";
 
 export interface ValidationSectionField {
   field: ValidationFieldName;
@@ -17,10 +21,10 @@ export interface ValidationSectionField {
 
 type RowStatus = "pending" | "validated" | "corrected";
 
-const STATUS_DISPLAY: Record<RowStatus, { text: string; className: string }> = {
-  validated: { text: "✅ OK", className: "text-brand-700 dark:text-brand-400" },
-  corrected: { text: "🔧 Editado", className: "text-caution-700 dark:text-caution-400" },
-  pending: { text: "⏳ Pendiente", className: "text-neutral-500 dark:text-neutral-500" },
+const STATUS_DISPLAY: Record<RowStatus, { icon: ComponentType<IconProps>; label: string; className: string }> = {
+  validated: { icon: CheckIcon, label: "OK", className: "text-brand-700 dark:text-brand-400" },
+  corrected: { icon: EditIcon, label: "Editado", className: "text-caution-700 dark:text-caution-400" },
+  pending: { icon: PendingIcon, label: "Pendiente", className: "text-neutral-600 dark:text-neutral-400" },
 };
 
 function displayValue(value: FieldValue): string {
@@ -29,8 +33,8 @@ function displayValue(value: FieldValue): string {
 
 /**
  * Tabla de validación humana (RF-007, Fase 5). Un campo con confianza >90%
- * arranca "✅ OK" sin que el usuario tenga que tocarlo (reduce fricción en
- * lo que el OCR ya acertó con seguridad); el resto arranca "⏳ Pendiente"
+ * arranca como "OK" sin que el usuario tenga que tocarlo (reduce fricción en
+ * lo que el OCR ya acertó con seguridad); el resto arranca como "Pendiente"
  * hasta que el usuario lo confirme o lo corrija.
  */
 export function ValidationSection({ documentId, fields }: { documentId: string; fields: ValidationSectionField[] }) {
@@ -139,82 +143,158 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
   const isBusy = isSaving || isRejecting;
   const hasUnsavedEdit = editingField !== null;
 
+  const rows = fields.map((f, index) => ({
+    f,
+    index,
+    status: statusFor(f),
+    statusDisplay: STATUS_DISPLAY[statusFor(f)],
+    isEditingThis: editingField === f.field,
+    // Proveedor es texto libre (nombre de empresa); el resto (NIT, fecha,
+    // IVA, valor, total) contiene dígitos y se lee mejor en fuente tabular.
+    isMonospaceDisplay: f.field !== "proveedor",
+  }));
+
   return (
-    <div className="animate-fade-in flex flex-col gap-3 rounded-lg border-2 border-brand-200 bg-brand-50/40 p-3 dark:border-brand-800 dark:bg-brand-950/20">
+    <div className="animate-fade-in flex flex-col gap-4 rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
       <div>
         <h2 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-50">Validación de campos (Fase 5)</h2>
-        <p className="text-xs text-neutral-500 dark:text-neutral-500">
+        <p className="text-xs text-neutral-600 dark:text-neutral-400">
           Revisa cada campo extraído por el OCR. Los campos con confianza alta ya aparecen como &quot;OK&quot; — corrígelos si el
           valor real es distinto.
         </p>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[520px] text-left text-sm">
-          <thead>
-            <tr className="text-xs text-neutral-500 dark:text-neutral-500">
-              <th className="pb-1 pr-2">Campo</th>
-              <th className="pb-1 pr-2">Valor OCR</th>
-              <th className="pb-1 pr-2">Confianza</th>
-              <th className="pb-1 pr-2">Estado</th>
-              <th className="pb-1">Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            {fields.map((f, index) => {
-              const status = statusFor(f);
-              const isEditingThis = editingField === f.field;
-              const isNumeric = (NUMERIC_VALIDATION_FIELDS as readonly ValidationFieldName[]).includes(f.field);
-
-              return (
-                <tr key={f.field} className="border-t border-neutral-200 dark:border-neutral-800">
-                  <td className="py-2 pr-2 font-medium text-neutral-700 dark:text-neutral-300">{VALIDATION_FIELD_LABELS[f.field]}</td>
-                  <td className="py-2 pr-2">
-                    {isEditingThis ? (
-                      <div className="flex flex-col gap-1">
-                        <input
-                          autoFocus
-                          value={editDraft}
-                          onChange={(e) => setEditDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") commitEdit(f);
-                            if (e.key === "Escape") cancelEdit();
-                          }}
-                          className={`w-full rounded-md border border-brand-400 px-2 py-1 text-sm outline-none dark:border-brand-600 dark:bg-neutral-950 ${isNumeric ? "font-data" : ""}`}
-                        />
-                        {fieldError ? <span className="text-xs text-critical-600 dark:text-critical-400">{fieldError}</span> : null}
-                      </div>
-                    ) : (
-                      <span className={`text-neutral-900 dark:text-neutral-50 ${isNumeric ? "font-data" : ""}`}>{displayValue(currentValue(f))}</span>
-                    )}
-                  </td>
-                  <td className="py-2 pr-2">
-                    <div className="w-24">
-                      <ConfidenceBar confidence={f.confidence} size="sm" showLabel={false} delayMs={index * 80} />
+      {/* Desktop (md+): tabla real, sin scroll horizontal -- todas las columnas caben a partir de 768px. */}
+      <table className="hidden w-full text-left text-sm md:table">
+        <thead>
+          <tr className="bg-neutral-50 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+            <th className="w-[120px] pb-1 pr-2">Campo</th>
+            <th className="pb-1 pr-2">Valor OCR</th>
+            <th className="w-[150px] pb-1 pr-2">Confianza</th>
+            <th className="w-[120px] pb-1 pr-2">Estado</th>
+            <th className="w-[100px] pb-1">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ f, index, statusDisplay, isEditingThis, isMonospaceDisplay }) => {
+            const StatusIcon = statusDisplay.icon;
+            return (
+              <tr
+                key={f.field}
+                className="h-12 border-t border-neutral-200 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800"
+              >
+                <td className="py-2 pr-2 font-semibold text-neutral-700 dark:text-neutral-300">{VALIDATION_FIELD_LABELS[f.field]}</td>
+                <td className="py-2 pr-2">
+                  {isEditingThis ? (
+                    <div className="flex flex-col gap-1">
+                      <input
+                        autoFocus
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitEdit(f);
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        className={`w-full rounded-md border border-brand-400 px-2 py-1 text-sm outline-none dark:border-brand-600 dark:bg-neutral-950 ${isMonospaceDisplay ? "font-data" : ""}`}
+                      />
+                      {fieldError ? <span className="text-xs text-critical-600 dark:text-critical-400">{fieldError}</span> : null}
                     </div>
-                  </td>
-                  <td className={`py-2 pr-2 ${STATUS_DISPLAY[status].className}`}>{STATUS_DISPLAY[status].text}</td>
-                  <td className="py-2">
-                    {isEditingThis ? (
-                      <div className="flex gap-1">
-                        <Button type="button" size="sm" onClick={() => commitEdit(f)}>
-                          Guardar
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={cancelEdit}>
-                          ✕
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button type="button" variant="secondary" size="sm" onClick={() => startEdit(f)} disabled={isBusy}>
-                        Editar
+                  ) : (
+                    <span
+                      title={displayValue(currentValue(f))}
+                      className={`inline-block max-w-[200px] truncate align-bottom text-neutral-900 dark:text-neutral-50 ${isMonospaceDisplay ? "font-data" : ""}`}
+                    >
+                      {displayValue(currentValue(f))}
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 pr-2">
+                  <div className="w-[150px]">
+                    <ConfidenceBar confidence={f.confidence} size="sm" delayMs={index * 80} />
+                  </div>
+                </td>
+                <td className={`py-2 pr-2 ${statusDisplay.className}`}>
+                  <span className="inline-flex items-center gap-1">
+                    <StatusIcon className="h-4 w-4" />
+                    {statusDisplay.label}
+                  </span>
+                </td>
+                <td className="py-2">
+                  {isEditingThis ? (
+                    <div className="flex gap-1">
+                      <Button type="button" size="sm" onClick={() => commitEdit(f)}>
+                        Guardar
                       </Button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      <Button type="button" variant="secondary" size="sm" onClick={cancelEdit}>
+                        ✕
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button type="button" variant="outline" size="sm" onClick={() => startEdit(f)} disabled={isBusy}>
+                      Editar
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Mobile (<768px): tarjetas apiladas -- misma información, sin tabla ni scroll horizontal. */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {rows.map(({ f, index, statusDisplay, isEditingThis, isMonospaceDisplay }) => {
+          const StatusIcon = statusDisplay.icon;
+          return (
+            <div key={f.field} className="flex flex-col gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-neutral-700 dark:text-neutral-300">{VALIDATION_FIELD_LABELS[f.field]}</span>
+                <span className={`inline-flex items-center gap-1 text-sm ${statusDisplay.className}`}>
+                  <StatusIcon className="h-4 w-4" />
+                  {statusDisplay.label}
+                </span>
+              </div>
+
+              {isEditingThis ? (
+                <div className="flex flex-col gap-1">
+                  <input
+                    value={editDraft}
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitEdit(f);
+                      if (e.key === "Escape") cancelEdit();
+                    }}
+                    className={`w-full rounded-md border border-brand-400 px-2 py-1 text-sm outline-none dark:border-brand-600 dark:bg-neutral-950 ${isMonospaceDisplay ? "font-data" : ""}`}
+                  />
+                  {fieldError ? <span className="text-xs text-critical-600 dark:text-critical-400">{fieldError}</span> : null}
+                </div>
+              ) : (
+                <span className={`break-words text-neutral-900 dark:text-neutral-50 ${isMonospaceDisplay ? "font-data" : ""}`}>
+                  {displayValue(currentValue(f))}
+                </span>
+              )}
+
+              <ConfidenceBar confidence={f.confidence} size="sm" delayMs={index * 80} />
+
+              <div className="flex justify-end gap-1">
+                {isEditingThis ? (
+                  <>
+                    <Button type="button" size="sm" onClick={() => commitEdit(f)}>
+                      Guardar
+                    </Button>
+                    <Button type="button" variant="secondary" size="sm" onClick={cancelEdit}>
+                      ✕
+                    </Button>
+                  </>
+                ) : (
+                  <Button type="button" variant="outline" size="sm" onClick={() => startEdit(f)} disabled={isBusy}>
+                    Editar
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {hasUnsavedEdit ? (
@@ -227,7 +307,7 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
       ) : null}
       {message ? <p className="text-sm text-brand-700 dark:text-brand-400">{message}</p> : null}
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-between gap-4">
         <Button type="button" variant="danger" onClick={handleReject} disabled={isBusy || hasUnsavedEdit}>
           {isRejecting ? "Rechazando..." : "Rechazar documento"}
         </Button>
