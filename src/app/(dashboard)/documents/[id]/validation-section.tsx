@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/common/Button";
+import { ConfidenceBar } from "@/components/validation/ConfidenceBar";
 import { VALIDATION_FIELD_LABELS } from "@/lib/constants/document-display";
 import { computeConfidenceLevel, parseFieldValue } from "@/modules/documents/validation-logic";
 import { saveValidation, rejectDocument } from "@/modules/documents/save-validation";
-import type { FieldValue, ValidationFieldInput, ValidationFieldName } from "@/modules/documents/validation-types";
+import { NUMERIC_VALIDATION_FIELDS, type FieldValue, type ValidationFieldInput, type ValidationFieldName } from "@/modules/documents/validation-types";
 
 export interface ValidationSectionField {
   field: ValidationFieldName;
@@ -15,16 +17,10 @@ export interface ValidationSectionField {
 
 type RowStatus = "pending" | "validated" | "corrected";
 
-const CONFIDENCE_BADGE_CLASS: Record<ReturnType<typeof computeConfidenceLevel>, string> = {
-  high: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400",
-  medium: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400",
-  low: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400",
-};
-
-const STATUS_DISPLAY: Record<RowStatus, string> = {
-  validated: "✅ OK",
-  corrected: "🔧 Editado",
-  pending: "⏳ Pendiente",
+const STATUS_DISPLAY: Record<RowStatus, { text: string; className: string }> = {
+  validated: { text: "✅ OK", className: "text-brand-700 dark:text-brand-400" },
+  corrected: { text: "🔧 Editado", className: "text-caution-700 dark:text-caution-400" },
+  pending: { text: "⏳ Pendiente", className: "text-neutral-500 dark:text-neutral-500" },
 };
 
 function displayValue(value: FieldValue): string {
@@ -144,9 +140,9 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
   const hasUnsavedEdit = editingField !== null;
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border-2 border-sky-300 bg-sky-50/50 p-3 dark:border-sky-800 dark:bg-sky-950/20">
+    <div className="flex flex-col gap-3 rounded-lg border-2 border-brand-200 bg-brand-50/40 p-3 dark:border-brand-800 dark:bg-brand-950/20">
       <div>
-        <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">Validación de campos (Fase 5)</h2>
+        <h2 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-50">Validación de campos (Fase 5)</h2>
         <p className="text-xs text-neutral-500 dark:text-neutral-500">
           Revisa cada campo extraído por el OCR. Los campos con confianza alta ya aparecen como &quot;OK&quot; — corrígelos si el
           valor real es distinto.
@@ -166,9 +162,9 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
           </thead>
           <tbody>
             {fields.map((f) => {
-              const level = computeConfidenceLevel(f.confidence);
               const status = statusFor(f);
               const isEditingThis = editingField === f.field;
+              const isNumeric = (NUMERIC_VALIDATION_FIELDS as readonly ValidationFieldName[]).includes(f.field);
 
               return (
                 <tr key={f.field} className="border-t border-neutral-200 dark:border-neutral-800">
@@ -184,47 +180,34 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
                             if (e.key === "Enter") commitEdit(f);
                             if (e.key === "Escape") cancelEdit();
                           }}
-                          className="w-full rounded-md border border-sky-400 px-2 py-1 text-sm outline-none dark:border-sky-600 dark:bg-neutral-950"
+                          className={`w-full rounded-md border border-brand-400 px-2 py-1 text-sm outline-none dark:border-brand-600 dark:bg-neutral-950 ${isNumeric ? "font-data" : ""}`}
                         />
-                        {fieldError ? <span className="text-xs text-red-600 dark:text-red-400">{fieldError}</span> : null}
+                        {fieldError ? <span className="text-xs text-critical-600 dark:text-critical-400">{fieldError}</span> : null}
                       </div>
                     ) : (
-                      <span className="text-neutral-900 dark:text-neutral-50">{displayValue(currentValue(f))}</span>
+                      <span className={`text-neutral-900 dark:text-neutral-50 ${isNumeric ? "font-data" : ""}`}>{displayValue(currentValue(f))}</span>
                     )}
                   </td>
                   <td className="py-2 pr-2">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CONFIDENCE_BADGE_CLASS[level]}`}>
-                      {(f.confidence * 100).toFixed(0)}%
-                    </span>
+                    <div className="w-24">
+                      <ConfidenceBar confidence={f.confidence} size="sm" showLabel={false} />
+                    </div>
                   </td>
-                  <td className="py-2 pr-2 text-neutral-700 dark:text-neutral-300">{STATUS_DISPLAY[status]}</td>
+                  <td className={`py-2 pr-2 ${STATUS_DISPLAY[status].className}`}>{STATUS_DISPLAY[status].text}</td>
                   <td className="py-2">
                     {isEditingThis ? (
                       <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => commitEdit(f)}
-                          className="rounded-md bg-sky-600 px-2 py-1 text-xs font-medium text-white hover:bg-sky-700"
-                        >
+                        <Button type="button" size="sm" onClick={() => commitEdit(f)}>
                           Guardar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          className="rounded-md border border-neutral-300 px-2 py-1 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
-                        >
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={cancelEdit}>
                           ✕
-                        </button>
+                        </Button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => startEdit(f)}
-                        disabled={isBusy}
-                        className="rounded-md bg-sky-600 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-40 hover:bg-sky-700"
-                      >
+                      <Button type="button" variant="secondary" size="sm" onClick={() => startEdit(f)} disabled={isBusy}>
                         Editar
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -235,32 +218,22 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
       </div>
 
       {hasUnsavedEdit ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">Confirma o cancela la edición en curso antes de guardar.</p>
+        <p className="text-xs text-caution-700 dark:text-caution-400">Confirma o cancela la edición en curso antes de guardar.</p>
       ) : null}
       {error ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-critical-600 dark:text-critical-400">
           {error}
         </p>
       ) : null}
-      {message ? <p className="text-sm text-green-700 dark:text-green-400">{message}</p> : null}
+      {message ? <p className="text-sm text-brand-700 dark:text-brand-400">{message}</p> : null}
 
       <div className="flex flex-wrap justify-end gap-2">
-        <button
-          type="button"
-          onClick={handleReject}
-          disabled={isBusy || hasUnsavedEdit}
-          className="rounded-md border border-red-500 px-4 py-2 text-sm font-medium text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-800 dark:text-red-400"
-        >
+        <Button type="button" variant="danger" onClick={handleReject} disabled={isBusy || hasUnsavedEdit}>
           {isRejecting ? "Rechazando..." : "Rechazar documento"}
-        </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={isBusy || hasUnsavedEdit}
-          className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40 hover:bg-green-700"
-        >
+        </Button>
+        <Button type="button" variant="primary" onClick={handleSave} disabled={isBusy || hasUnsavedEdit}>
           {isSaving ? "Guardando..." : "Guardar validación"}
-        </button>
+        </Button>
       </div>
     </div>
   );

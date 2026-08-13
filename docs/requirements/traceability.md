@@ -642,3 +642,35 @@ etc.).
 4. `npm run dev` (u otro servidor) + `E2E_BASE_URL=... npx playwright test`.
 5. Correr `tests/MANUAL_CHECKLIST.md` en un navegador/celular real.
 6. Reportar los resultados reales -- **nunca asumir que "escrito" significa "pasó"**.
+
+## Sistema de diseño (`feature/design-system`)
+
+Trabajo puntual (`CLAUDE.md` §3, `feature/nombre`) fuera de la numeración de fases,
+ramificado desde `main` (no desde `fase/8-deploy-final`, todavía sin aprobar/mergear,
+para no mezclar ambos cierres). El enunciado original decía "pegar contenido completo
+de UI_UX_DESIGN_SYSTEM.md" pero solo llegó un resumen -- los valores no especificados
+(escalas de color completas, spacing, timings de animación) se decidieron con criterio
+propio y se documentan aquí.
+
+| Entregable | Archivo(s) | Nota |
+|---|---|---|
+| Tokens de diseño (Tailwind v4, CSS-first) | `src/styles/theme.css` | Sin `tailwind.config.ts` -- Tailwind v4 lo deprecó en favor de `@theme` en CSS, confirmado contra la versión real instalada (4.3.3). Paleta: verde bosque (`brand`, ancla `#0F7B54`), ámbar apagado (`caution`), rojo terracota (`critical`), escalas 50-900 propias (no los rojo/ámbar saturados por defecto de Tailwind) |
+| Tipografía | `src/app/layout.tsx` (next/font/google) | Inter Tight (`font-display`, títulos), Inter (`font-sans`, cuerpo), JetBrains Mono (`font-mono`/`.font-data`, montos/NIT/confidence/IDs) -- reemplaza Geist/Geist Mono (boilerplate de create-next-app nunca personalizado) |
+| `Button` (primary/secondary/danger, 2 tamaños) | `src/components/common/Button.tsx` | `tests/unit/components/common/Button.test.tsx` (5/5) |
+| `Card`/`StatCard`/`CardHeader` | `src/components/common/Card.tsx` | Sin test dedicado (wrapper de presentación, sin lógica propia) |
+| `ConfidenceBar` (componente signature) | `src/components/validation/ConfidenceBar.tsx` | Gradiente rojo→ámbar→verde real (truco de `background-size`, no 3 colores discretos), anima ancho al montar, usa `computeConfidenceLevel` ya existente (no duplica el umbral). `tests/unit/components/validation/ConfidenceBar.test.tsx` (4/4) |
+| Infraestructura de test de componentes (nueva) | `tests/setup.ts`, `vitest.config.mts` (`setupFiles`) | Primer uso real de `@testing-library/react`/`jest-dom` en el proyecto (instalados desde antes, nunca conectados) -- `globals: false` en Vitest significa que el auto-cleanup de testing-library no se activa solo, se registró explícito |
+| Refactor con el nuevo sistema | `validation-section.tsx` (integra `ConfidenceBar`), `dashboard-nav.tsx`, `admin/page.tsx`, `login/page.tsx` | Alcance acotado a **estas 4 superficies**, no toda la app -- ver nota abajo |
+
+**Alcance del refactor, explícito:** no se reescribió toda la aplicación. Las 4
+superficies elegidas son las de mayor visibilidad (tabla de validación con el
+componente signature, navegación global, dashboard admin, login) más el resto de la
+app **sigue con los estilos anteriores** (`bg-neutral-900`, `border-red-500`, etc.) --
+no es una inconsistencia accidental, es el límite de esta tarea puntual. Migrar el
+resto queda pendiente si el equipo lo pide.
+
+**Sin verificación visual** (`CLAUDE.md` §11 -- ni servidor ni navegador en esta
+sesión): todo lo de arriba compila (`tsc`/`eslint`/`build` limpios) y pasa sus tests
+automatizados, pero cómo se ve realmente (contraste, alineación, la animación del
+gradiente) no se confirmó en un navegador real. Pendiente de revisión visual del
+equipo.

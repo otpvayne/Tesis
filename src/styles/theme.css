@@ -1,0 +1,85 @@
+/**
+ * Design tokens — sistema de diseño Mansor.
+ *
+ * Tailwind CSS v4 usa configuración "CSS-first" (`@theme`), no
+ * `tailwind.config.ts` (deprecado desde v4) — cada variable declarada aquí
+ * genera automáticamente sus utilidades correspondientes (`--color-brand-600`
+ * → `bg-brand-600`, `text-brand-600`, `border-brand-600`, etc.). Ver
+ * https://tailwindcss.com/docs/theme.
+ *
+ * Paleta deliberadamente no genérica: verde bosque como color de marca (no
+ * el azul/índigo por defecto de casi cualquier dashboard SaaS), ámbar cálido
+ * y rojo terracota para los estados de advertencia/error — ambos más
+ * apagados que los rojo/ámbar saturados por defecto de Tailwind, para que
+ * convivan con el verde sin competir visualmente. Las 3 escalas comparten el
+ * mismo criterio de luminosidad por paso (50 = casi blanco, 900 = casi
+ * negro) para que se puedan combinar sin choques de contraste.
+ */
+@theme {
+  /* Verde bosque — marca, acciones primarias, confidence alta */
+  --color-brand-50: #eaf6f0;
+  --color-brand-100: #cfebdc;
+  --color-brand-200: #a0d7ba;
+  --color-brand-300: #6fc098;
+  --color-brand-400: #3ca379;
+  --color-brand-500: #1c8b62;
+  --color-brand-600: #0f7b54;
+  --color-brand-700: #0c6344;
+  --color-brand-800: #094d36;
+  --color-brand-900: #073827;
+
+  /* Ámbar cálido — advertencias, confidence media */
+  --color-caution-50: #fbf3e7;
+  --color-caution-100: #f5e1c2;
+  --color-caution-200: #ebc788;
+  --color-caution-300: #e0ac54;
+  --color-caution-400: #d2932e;
+  --color-caution-500: #c17817;
+  --color-caution-600: #a8650f;
+  --color-caution-700: #86500d;
+  --color-caution-800: #653c0a;
+  --color-caution-900: #452908;
+
+  /* Rojo terracota — errores, rechazos, confidence baja */
+  --color-critical-50: #fbeae9;
+  --color-critical-100: #f3c9c6;
+  --color-critical-200: #e69b95;
+  --color-critical-300: #d66b62;
+  --color-critical-400: #c6473c;
+  --color-critical-500: #b3261e;
+  --color-critical-600: #941f18;
+  --color-critical-700: #741812;
+  --color-critical-800: #55110d;
+  --color-critical-900: #380b08;
+
+  /* Tipografía — ver src/app/layout.tsx para dónde se declaran las variables de next/font */
+  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  /* Radios — un poco más redondeado que el default de Tailwind (0.5rem/0.75rem) para un look más suave/moderno */
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+
+  /* Easing compartido para las animaciones "suaves" del sistema (ConfidenceBar, transiciones de estado) */
+  --ease-signature: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/**
+ * `prefers-reduced-motion`: no es un token de Tailwind, es una media query
+ * global — cualquier elemento marcado con `.motion-safe-transition` (o que
+ * use la utilidad `transition-*` de Tailwind) queda sin animación real para
+ * quien lo pida a nivel de sistema operativo, sin tener que duplicar la
+ * lógica en cada componente.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

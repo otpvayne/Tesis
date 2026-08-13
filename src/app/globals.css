@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../styles/theme.css";
 
 :root {
   --background: #ffffff;
@@ -8,8 +9,6 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +21,40 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+/**
+ * Escala tipográfica — Inter Tight (`font-display`) para títulos, tamaños
+ * generados con una razón ~1.25 (tercera menor) entre pasos, spacing
+ * negativo leve en los tamaños grandes (look más compacto/editorial, no el
+ * default suelto del navegador).
+ */
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.75rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.375rem;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.125rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+/** Datos tabulares/numéricos (montos, NIT, confidence, IDs) — JetBrains Mono, con `tabular-nums` para que columnas de dígitos alineen aunque el navegador no use la fuente mono (fallback). */
+.font-data {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
