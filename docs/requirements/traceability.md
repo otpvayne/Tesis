@@ -772,3 +772,34 @@ mobile (`aria-expanded`). 338/338 en el proyecto, estable en 2 corridas. `tsc`,
 `eslint` y `build` limpios. **Sin verificación visual en navegador real** (`CLAUDE.md`
 §11) -- esta es exactamente la pieza estructural que el equipo pidió revisar antes de
 seguir con las fases 2-4.
+
+### Rediseño UX/UI — Fase 2: PageHero (orientación de usuario)
+
+`src/components/common/PageHero.tsx` (nuevo): título + descripción + "¿qué puedes
+hacer aquí?" (bullets) + tip, reemplazando el `<h1>` suelto en las 9 páginas pedidas.
+Animación escalonada real, no un fade simple: cada uno de los 3 bloques (título/
+descripción/info) entra con `--animate-hero-in` (traslado + opacidad, con
+`--ease-bounce` -- rebote leve, nuevo token, distinto del `--ease-signature` calmado
+que ya usaba `ConfidenceBar`) y `animation-delay` creciente (0/100/200ms).
+
+**`/documents/[id]` no estaba en la tabla de contenido del pedido original** (esa
+tabla tenía `/documents/new`, que no está en el alcance de Fase 2) -- se escribió
+contenido nuevo para esa página desde cero.
+
+**Corrección deliberada:** el pedido original sugería el tip "v0.4.0-ocr es actual"
+para `/admin/models` -- `v0.4.0-ocr` es el tag de Git que marca el cierre de Fase 4
+(todo el pipeline OCR), no el `version` de ningún modelo en `ocr_models` (el activo
+real hoy es `synthetic-node-2026-08-12T23:56:12.981Z`). Confundir ambos en un tip
+permanente habría sido incorrecto desde el día uno y falso en cuanto se entrene un
+modelo nuevo. Se escribió un tip real en su lugar (accuracy real vs. representatividad
+sobre datos sintéticos).
+
+Se retiró `animate-fade-in` del contenedor raíz en las páginas que ahora empiezan con
+`PageHero` (que ya trae su propia animación de entrada) -- evita animar opacidad dos
+veces en cascada sobre el mismo bloque.
+
+2 tests nuevos (`tests/unit/components/common/PageHero.test.tsx`): renderiza título/
+descripción/bullets/tip, y confirma el delay distinto por bloque. 340/340 en el
+proyecto, estable en 2 corridas. `tsc`, `eslint` y `build` limpios. Sin verificación
+visual en navegador real (`CLAUDE.md` §11) -- particularmente sin confirmar que el
+rebote de `--ease-bounce` se sienta bien y no exagerado.

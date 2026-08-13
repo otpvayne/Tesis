@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdminPage } from "@/lib/auth/require-admin-page";
 import { listAllModels } from "@/modules/ocr/classification/training-actions";
+import { PageHero } from "@/components/common/PageHero";
 import { ModelsListClient } from "./models-list-client";
 
 /**
@@ -14,8 +15,17 @@ export default async function AdminModelsPage() {
   const models = await listAllModels();
 
   return (
-    <div className="animate-fade-in mx-auto flex max-w-2xl flex-col gap-6">
-      <h1 className="font-display text-xl font-semibold text-neutral-900 dark:text-neutral-50">Modelos OCR</h1>
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+      <PageHero
+        title="Modelos OCR"
+        description="Todas las versiones del modelo entrenadas hasta ahora, con su accuracy real y cuál está activo."
+        bullets={[
+          "Ver accuracy, tamaño del dataset (train/test) y clases de cada modelo",
+          "Activar un modelo (lo empieza a usar 'Procesar documento') o desactivarlo",
+          "Entrenar uno nuevo en /ocr-lab/train cuando haya datos etiquetados suficientes",
+        ]}
+        tip="El accuracy que ves aquí es real, no estimado — pero si el modelo se entrenó con datos sintéticos, no representa qué tan bien funciona con facturas reales de Mansor."
+      />
 
       <ModelsListClient models={models} />
 

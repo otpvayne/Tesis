@@ -5,6 +5,7 @@ import { DOCUMENT_STATUSES, type DocumentStatus } from "@/modules/documents/type
 import { getDocumentStatusLabel, getDocumentTypeLabel } from "@/lib/constants/document-display";
 import { Button } from "@/components/common/Button";
 import { Card } from "@/components/common/Card";
+import { PageHero } from "@/components/common/PageHero";
 
 interface DocumentsSearchParams {
   page?: string;
@@ -63,9 +64,22 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   const totalPages = Math.max(1, Math.ceil(result.totalCount / result.pageSize));
 
   return (
-    <div className="animate-fade-in mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <PageHero
+        title="Documentos"
+        description="Sube, procesa y valida tus facturas — todo tu historial en un solo lugar."
+        bullets={[
+          "Subir una factura nueva y que el sistema corra el OCR",
+          "Ver el estado de cada documento (cargado, procesado, validado)",
+          "Abrir un documento para revisar y corregir los campos extraídos",
+        ]}
+        tip="Fotos de frente, bien iluminadas y sin sombras dan mejor resultado de OCR que fotos en ángulo."
+      />
+
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-xl font-semibold text-neutral-900 dark:text-neutral-50">Mis documentos</h1>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          {result.totalCount} documento{result.totalCount === 1 ? "" : "s"} en total
+        </p>
         <Link href="/documents/new">
           <Button size="sm">Nuevo</Button>
         </Link>

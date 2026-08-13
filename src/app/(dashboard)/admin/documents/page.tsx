@@ -4,6 +4,7 @@ import { listDocuments, type DocumentWithOwnerEmail } from "@/modules/documents/
 import { DOCUMENT_STATUSES, type DocumentStatus } from "@/modules/documents/types";
 import { getDocumentStatusLabel } from "@/lib/constants/document-display";
 import { Button } from "@/components/common/Button";
+import { PageHero } from "@/components/common/PageHero";
 
 interface AdminDocumentsSearchParams {
   page?: string;
@@ -67,8 +68,17 @@ export default async function AdminDocumentsPage({ searchParams }: AdminDocument
   const totalPages = Math.max(1, Math.ceil(result.totalCount / result.pageSize));
 
   return (
-    <div className="animate-fade-in mx-auto flex max-w-3xl flex-col gap-6">
-      <h1 className="font-display text-xl font-semibold text-neutral-900 dark:text-neutral-50">Documentos — todos los usuarios</h1>
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <PageHero
+        title="Documentos — todos los usuarios"
+        description="Vista completa de todos los documentos del sistema, no solo los tuyos."
+        bullets={[
+          "Filtrar por estado, rango de fechas o un ID exacto",
+          "Ver la confianza OCR y si cada documento ya fue validado",
+          "Abrir cualquier documento de cualquier usuario para revisarlo",
+        ]}
+        tip="Filtra por status='rejected' o accuracy baja para encontrar rápido los documentos que necesitan atención."
+      />
 
       <form method="get" className="flex flex-wrap gap-2">
         <input
