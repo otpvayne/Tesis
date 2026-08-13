@@ -24,7 +24,7 @@ type RowStatus = "pending" | "validated" | "corrected";
 const STATUS_DISPLAY: Record<RowStatus, { icon: ComponentType<IconProps>; label: string; className: string }> = {
   validated: { icon: CheckIcon, label: "OK", className: "text-brand-700 dark:text-brand-400" },
   corrected: { icon: EditIcon, label: "Editado", className: "text-caution-700 dark:text-caution-400" },
-  pending: { icon: PendingIcon, label: "Pendiente", className: "text-neutral-500 dark:text-neutral-500" },
+  pending: { icon: PendingIcon, label: "Pendiente", className: "text-neutral-600 dark:text-neutral-400" },
 };
 
 function displayValue(value: FieldValue): string {
@@ -144,10 +144,10 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
   const hasUnsavedEdit = editingField !== null;
 
   return (
-    <div className="animate-fade-in flex flex-col gap-3 rounded-lg border-2 border-brand-200 bg-brand-50/40 p-3 dark:border-brand-800 dark:bg-brand-950/20">
+    <div className="animate-fade-in flex flex-col gap-4 rounded-lg border-2 border-brand-200 bg-brand-50/40 p-6 dark:border-brand-800 dark:bg-brand-950/20">
       <div>
         <h2 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-50">Validación de campos (Fase 5)</h2>
-        <p className="text-xs text-neutral-500 dark:text-neutral-500">
+        <p className="text-xs text-neutral-600 dark:text-neutral-400">
           Revisa cada campo extraído por el OCR. Los campos con confianza alta ya aparecen como &quot;OK&quot; — corrígelos si el
           valor real es distinto.
         </p>
@@ -156,7 +156,7 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[520px] text-left text-sm">
           <thead>
-            <tr className="text-xs text-neutral-500 dark:text-neutral-500">
+            <tr className="text-xs text-neutral-600 dark:text-neutral-400">
               <th className="pb-1 pr-2">Campo</th>
               <th className="pb-1 pr-2">Valor OCR</th>
               <th className="pb-1 pr-2">Confianza</th>
@@ -173,8 +173,11 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
               const isNumeric = (NUMERIC_VALIDATION_FIELDS as readonly ValidationFieldName[]).includes(f.field);
 
               return (
-                <tr key={f.field} className="border-t border-neutral-200 dark:border-neutral-800">
-                  <td className="py-2 pr-2 font-medium text-neutral-700 dark:text-neutral-300">{VALIDATION_FIELD_LABELS[f.field]}</td>
+                <tr
+                  key={f.field}
+                  className="border-t border-neutral-200 transition-colors hover:bg-white/60 dark:border-neutral-800 dark:hover:bg-neutral-950/30"
+                >
+                  <td className="py-2 pr-2 font-semibold text-neutral-700 dark:text-neutral-300">{VALIDATION_FIELD_LABELS[f.field]}</td>
                   <td className="py-2 pr-2">
                     {isEditingThis ? (
                       <div className="flex flex-col gap-1">
@@ -238,7 +241,7 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
       ) : null}
       {message ? <p className="text-sm text-brand-700 dark:text-brand-400">{message}</p> : null}
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-between gap-2">
         <Button type="button" variant="danger" onClick={handleReject} disabled={isBusy || hasUnsavedEdit}>
           {isRejecting ? "Rechazando..." : "Rechazar documento"}
         </Button>
