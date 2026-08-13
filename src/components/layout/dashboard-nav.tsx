@@ -47,6 +47,11 @@ export function DashboardNav({ email, role }: DashboardNavProps) {
           Nuevo documento
         </Link>
         {isAdmin ? (
+          <Link href="/admin" className="hover:text-neutral-900 dark:hover:text-neutral-50">
+            Admin: dashboard
+          </Link>
+        ) : null}
+        {isAdmin ? (
           <Link
             href="/admin/documents"
             className="hover:text-neutral-900 dark:hover:text-neutral-50"
@@ -55,11 +60,18 @@ export function DashboardNav({ email, role }: DashboardNavProps) {
           </Link>
         ) : null}
         {isAdmin ? (
-          <Link
-            href="/admin/validation-dashboard"
-            className="hover:text-neutral-900 dark:hover:text-neutral-50"
-          >
-            Admin: validación
+          <Link href="/admin/validations" className="hover:text-neutral-900 dark:hover:text-neutral-50">
+            Admin: validaciones
+          </Link>
+        ) : null}
+        {isAdmin ? (
+          <Link href="/admin/models" className="hover:text-neutral-900 dark:hover:text-neutral-50">
+            Admin: modelos
+          </Link>
+        ) : null}
+        {isAdmin ? (
+          <Link href="/admin/reports" className="hover:text-neutral-900 dark:hover:text-neutral-50">
+            Admin: reportes
           </Link>
         ) : null}
       </nav>

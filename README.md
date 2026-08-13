@@ -5,26 +5,21 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 5 — Validación humana: UI + base de datos (en cierre).** Motor
-> OCR propio completo (Fase 4, tag `v0.4.0-ocr`: preprocesamiento, segmentación,
-> HOG/kNN, entrenamiento sintético, extracción de campos, evaluación) + RF-007: tabla
-> interactiva de validación en `/documents/[id]` (6 campos, colores de confianza,
-> edición inline, estados ✅/🔧/⏳, botones "Guardar validación"/"Rechazar documento") y
-> dashboard de estadísticas en `/admin/validation-dashboard`, 276 tests. Reutiliza la
-> tabla `document_validations` ya existente desde Fase 1 en vez de crear una nueva —
-> detalle en `docs/requirements/traceability.md` ("Entregables técnicos de Fase 5").
-> Persistencia y RLS **verificadas contra Supabase real**
-> (`tests/integration/document-validations-rls.test.ts`, 10/10); la interacción de UI
-> en navegador (edición inline, colores, botones) queda como checklist manual para
-> Andres/Santiago — no se puede automatizar en esta sesión (`CLAUDE.md` §11). **Hay un
-> modelo OCR activado** (por primera vez) generado con `npm run generate:model`
-> (síntesis + entrenamiento de Fase 4d corridos en Node vía `node-canvas`, no en
-> navegador) — "Procesar documento" ya no da 404, pero su accuracy real medida es
-> **16.1%** (62 clases, muy por debajo del umbral de calidad del propio código),
-> confusiones de glifos parecidos (C/G, S/5, I/l) — sirve para probar el flujo
-> completo, no como precisión usable; ver
-> `docs/requirements/traceability.md` ("Modelo OCR inicial activado"). Reentrenar con
-> caracteres reales en `/ocr-lab/train` sigue pendiente y sigue siendo necesario. Ver
+> Estado actual: **Fase 6 — Administración: vistas + reportes (en cierre).** Sobre el
+> motor OCR completo (Fase 4, tag `v0.4.0-ocr`) y la validación humana (Fase 5, RF-007),
+> esta fase agrega el área `/admin/*` completa: `/admin` (dashboard con KPIs reales y
+> gráfico de documentos/día), `/admin/documents` (ahora con confidence OCR y búsqueda
+> por ID), `/admin/validations` (antes `validation-dashboard`, + ediciones por usuario y
+> tendencia diaria real), `/admin/models` (activar/desactivar modelos) y
+> `/admin/reports` (CSV/JSON descargables, sin librerías nuevas — CSV escrito a mano),
+> 302 tests. `src/proxy.ts` redirige a `/login` en `/admin/*` sin sesión — chequeo
+> optimista únicamente, sin verificar rol (el rol se sigue validando por página + RLS,
+> siguiendo la guía oficial de Next 16). Ninguna cifra de ejemplo del enunciado se usó;
+> todo sale de la base real. Detalle completo, incluidas las desviaciones técnicas
+> (por qué `/admin/documents` busca por ID exacto y no por subcadena, entre otras), en
+> `docs/requirements/traceability.md` ("Entregables técnicos de Fase 6"). El modelo OCR
+> activado en Fase 5 sigue con accuracy real de **16.1%** (sintético) — reentrenar con
+> caracteres reales en `/ocr-lab/train` sigue pendiente. Ver
 > [`docs/roadmap.md`](docs/roadmap.md) y `CLAUDE.md` §13 para desviaciones pendientes.
 
 ## Equipo

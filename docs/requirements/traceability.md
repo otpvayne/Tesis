@@ -14,9 +14,9 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 | RF-002 | Reconocer texto vía OCR propio | `modules/ocr` | preprocesamiento (4a): `src/modules/ocr/preprocessing/*.ts`; segmentación (4b): `src/modules/ocr/segmentation/*.ts`, `src/modules/ocr/config.ts`; clasificación + entrenamiento sintético (4c/4d): `src/modules/ocr/classification/*.ts`; pipeline completo (4e): `src/modules/ocr/pipeline/ocr-pipeline.ts`; evaluación (4f): `src/modules/ocr/evaluation/*.ts` | preprocesamiento: `tests/unit/modules/ocr/preprocessing/*.test.ts` (53/53); segmentación: `tests/unit/modules/ocr/segmentation/*.test.ts` (40/40); clasificación/entrenamiento/extracción: `tests/unit/modules/ocr/classification/*.test.ts` (53/53); pipeline: `tests/unit/modules/ocr/pipeline/*.test.ts` (5/5); evaluación: `tests/unit/modules/ocr/evaluation/*.test.ts` (19/19) | IN_PROGRESS — algoritmos de las 6 fases (4a-4f) **VERIFIED** sobre datos sintéticos/`ImageData` directa; evaluación real sobre `test` con facturas de Mansor sigue PENDING (nadie ha etiquetado todavía, ver `docs/ocr/evaluation.md` §6) |
 | RF-003 | Extracción de campos obligatorios: Proveedor, NIT, Fecha, IVA, Valor, Total (actualizado Fase 4e con datos reales de Mansor; especificado según facturación colombiana — reemplaza la definición de Fase 0 `proveedor/fecha/monto_total` + `numero_factura` deseado) para `invoice_es` | `src/modules/ocr/classification/field-extraction.ts` | `tests/unit/modules/ocr/classification/field-extraction.test.ts` (9/9, incluye el ejemplo exacto del prompt de esta fase y el caso `Total`/`Subtotal`) | VERIFIED (heurística correcta sobre texto sintético; sin facturas reales de Mansor probadas todavía) |
 | RF-004 | Almacenar documento original + datos asociados en Supabase | `modules/documents` | esquema: `supabase/migrations/20260811200929_create_documents.sql`; bucket: `supabase/migrations/20260811205322_create_documents_storage_bucket.sql`; subida: `src/modules/documents/actions.ts`, `src/app/(dashboard)/documents/new/page.tsx` | `tests/integration/rls-isolation.test.ts` (7/7) + `tests/integration/storage-isolation.test.ts` (7/7, incluye caso ADMIN con sesión real) | VERIFIED |
-| RF-005 | Consultar documentos con filtros (proveedor, fecha, monto, estado) | `modules/documents` | `src/modules/documents/queries.ts`, `src/app/(dashboard)/documents/page.tsx` | `tests/integration/document-filters.test.ts` (7/7 verde) | status/fecha **VERIFIED** con datos reales; proveedor/monto **IMPLEMENTED** (query correcta contra muestra sintética de `ocr_results`, sin datos reales que filtrar hasta RF-002/RF-003 en Fase 4/5 — no es un bug, es orden de fases) |
+| RF-005 | Consultar documentos con filtros (proveedor, fecha, monto, estado, id) | `modules/documents` | `src/modules/documents/queries.ts`, `src/app/(dashboard)/documents/page.tsx`, `src/app/(dashboard)/admin/documents/page.tsx` (Fase 6: columna de accuracy/validado + búsqueda por id) | `tests/integration/document-filters.test.ts` (12/12 verde) | status/fecha/id **VERIFIED** con datos reales; proveedor/monto **IMPLEMENTED** (query correcta contra muestra sintética de `ocr_results`, sin datos reales que filtrar hasta RF-002/RF-003 en Fase 4/5 — no es un bug, es orden de fases) |
 | RF-006 | Integración contable (SIIGO u otra) | — | — | — | **DEFERRED** |
-| RF-007 | Validación humana de datos extraídos, con trazabilidad original/validado | `modules/documents` (validation-logic, save-validation), `app/(dashboard)/documents/[id]` (validation-section, validation-summary), `app/(dashboard)/admin/validation-dashboard` | lógica pura: `tests/unit/modules/documents/validation-logic.test.ts` (13/13); RLS/inmutabilidad contra Supabase real: `tests/integration/document-validations-rls.test.ts` (10/10) | IN_PROGRESS — persistencia y RLS **VERIFIED** contra el proyecto real; interacción de UI (edición inline, colores de confianza, botones) sin verificación automatizada posible en esta sesión (`CLAUDE.md` §11) — pendiente de verificación manual por el equipo, ver checklist de la Fase 5 |
+| RF-007 | Validación humana de datos extraídos, con trazabilidad original/validado | `modules/documents` (validation-logic, save-validation), `app/(dashboard)/documents/[id]` (validation-section, validation-summary), `app/(dashboard)/admin/validations` (Fase 6: renombrada desde `admin/validation-dashboard`, agrega ediciones por usuario y tendencia) | lógica pura: `tests/unit/modules/documents/validation-logic.test.ts` (13/13), `tests/unit/modules/admin/stats.test.ts` (8/8); RLS/inmutabilidad contra Supabase real: `tests/integration/document-validations-rls.test.ts` (10/10) | IN_PROGRESS — persistencia y RLS **VERIFIED** contra el proyecto real; interacción de UI (edición inline, colores de confianza, botones) sin verificación automatizada posible en esta sesión (`CLAUDE.md` §11) — pendiente de verificación manual por el equipo, ver checklist de la Fase 5 |
 
 ## Requerimientos no funcionales
 
@@ -504,3 +504,60 @@ Archivos: `src/modules/ocr/training/node-character-renderer.ts`,
 componente nuevo testeable en Vitest; `bin/generate-initial-model.ts` es wiring de
 script/DB igual que las demás Server Actions de este proyecto, sin test automatizado
 por el mismo criterio ya aplicado a `training-actions.ts`/`document-processing.ts`).
+
+## Entregables técnicos de Fase 6 (Administración: vistas + reportes)
+
+| Entregable | Archivo(s) | Prueba | Estado |
+|---|---|---|---|
+| `src/proxy.ts` (chequeo optimista de sesión para `/admin/*`) | `src/proxy.ts` | `npm run build` sin errores (ruta "Proxy (Middleware)" generada); sin verificación en navegador real (`CLAUDE.md` §11) | IMPLEMENTED (no VERIFIED) |
+| `requireAdminPage`/`requireAdminApi` (gate real de rol ADMIN, extraído para no duplicarlo en 6 páginas/rutas) | `src/lib/auth/require-admin-page.ts` | cubierto indirectamente por `tests/integration/admin-reports.test.ts` (sesión ADMIN real) | IMPLEMENTED |
+| `/admin` (dashboard: KPIs reales, gráfico de documentos/día en CSS, accesos rápidos) | `src/app/(dashboard)/admin/page.tsx`, `src/modules/admin/stats.ts` (`getAdminDashboardStats`, `bucketByDay`) | lógica pura: `tests/unit/modules/admin/stats.test.ts` (8/8) | IMPLEMENTED (no VERIFIED — interacción visual) |
+| `/admin/documents` extendida (columna de confidence OCR, ícono validado/rechazado, búsqueda por id exacto) | `src/app/(dashboard)/admin/documents/page.tsx`, `src/modules/documents/queries.ts` (`includeOcrConfidence`, `search`) | `tests/integration/document-filters.test.ts` (12/12, incluye búsqueda e `includeOcrConfidence` contra Supabase real) | VERIFIED |
+| `/admin/validations` (renombrada de `/admin/validation-dashboard`, Fase 5 + ediciones por usuario + tendencia diaria real) | `src/app/(dashboard)/admin/validations/page.tsx`, `src/modules/admin/stats.ts` (`computeValidatorStats`, `computeEditTrend`) | `tests/unit/modules/admin/stats.test.ts` (8/8) | IMPLEMENTED (no VERIFIED — interacción visual) |
+| `/admin/models` (lista de todos los modelos, activar/desactivar) + `deactivateModel`/`listAllModels` | `src/app/(dashboard)/admin/models/{page,models-list-client}.tsx`, `src/modules/ocr/classification/training-actions.ts` | `npm run build` sin errores; sin test automatizado (Server Actions, mismo criterio que `activateModel`) | IMPLEMENTED (no VERIFIED) |
+| `/admin/reports` + 3 Route Handlers (`GET /api/admin/reports/{documents,validations,stats}`, CSV/JSON reales, sin caché) | `src/app/(dashboard)/admin/reports/page.tsx`, `src/app/api/admin/reports/*/route.ts`, `src/modules/admin/csv.ts` (`toCsv`, sin dependencia nueva) | `tests/unit/modules/admin/csv.test.ts` (7/7); consultas embebidas reales (documents→ocr_results/document_validations→profiles) contra Supabase con sesión ADMIN real: `tests/integration/admin-reports.test.ts` (3/3) | VERIFIED (persistencia/RLS); Route Handlers en sí sin test directo (dependen de `next/headers`, mismo criterio que Server Actions) |
+| Migración: `audit_logs.action` acepta `MODEL_DEACTIVATED` (aditivo) | `supabase/migrations/20260813130000_add_model_deactivated_audit_action.sql` | aplicada y verificada contra el proyecto real (`npx supabase db push --linked`) | VERIFIED |
+
+### Decisiones técnicas / desviaciones del enunciado
+
+1. **`src/proxy.ts` ya existía** (Fase 1, bajo el nombre que Next.js 16 le dio a
+   `middleware.ts` — ver `node_modules/next/dist/docs/01-app/01-getting-started/16-proxy.md`).
+   Se sobreescribió sin leerlo primero por buscar solo `middleware.ts` — error de proceso
+   detectado a tiempo: el diff resultante es aditivo (mismo refresco de sesión que ya
+   tenía + el nuevo gate de `/admin`), no se perdió lógica.
+2. **Proxy NO verifica el rol ADMIN** — solo que haya sesión. La guía oficial de
+   autenticación de Next 16 (bundled en `node_modules`, sección "Optimistic checks with
+   Proxy") advierte explícitamente evitar consultas a la base de datos ahí, porque corre
+   en cada request incluyendo prefetches. La verificación real de `profiles.role`
+   permanece en cada página (`requireAdminPage`) + RLS — igual que ya hacían
+   `/admin/documents`/`/admin/validation-dashboard` desde antes de esta fase.
+3. **`id::text` con `ilike` no funciona en este proyecto Supabase** — verificado con tres
+   intentos distintos (filtro con cast en el nombre de columna, fetch crudo sin
+   encoding, alias de `select`), los tres devuelven `operator does not exist: uuid ~~*
+   unknown`. La "búsqueda por ID" de `/admin/documents` quedó como coincidencia exacta
+   (`.eq`), con un regex de UUID que ignora silenciosamente un valor mal formado en vez
+   de lanzar.
+4. **Sin `/api/ocr/train`**: el entrenamiento ya vive en `/ocr-lab/train`
+   (`trainAndEvaluateModel`/`saveSyntheticModel`, Fase 4c/4d) — `/admin/models` enlaza
+   ahí en vez de duplicar el flujo detrás de una ruta nueva.
+5. **Sin PapaParse ni librería de gráficos**: CSV escrito a mano (`modules/admin/csv.ts`,
+   RFC 4180) y gráficos de barra con `<div>`+CSS — ninguna librería nueva de producción,
+   solo `canvas`/`tsx` como devDependencies de Fase 5.
+6. **KPI "Accuracy OCR" del enunciado renombrado a "Confidence OCR promedio"**: es el
+   promedio real de `ocr_results.confidence` (el pipeline sí lo calcula), pero
+   confidence no es lo mismo que accuracy medida contra ground truth (esa vive en
+   `docs/ocr/evaluation.md`, requiere partición `test` real) — mismo cuidado de
+   vocabulario que el resto del proyecto desde Fase 4f.
+7. El número de ejemplo del enunciado ("Accuracy: 41%") nunca se usó — todas las cifras
+   de `/admin`, `/admin/models` y los reportes salen de la base real en el momento de la
+   petición.
+
+### Qué debe revisar el equipo (checklist manual, `CLAUDE.md` §11)
+
+- `/admin`, `/admin/documents`, `/admin/validations`, `/admin/models`, `/admin/reports`:
+  confirmar que un usuario sin rol ADMIN es redirigido y que un ADMIN ve todo
+  correctamente en un navegador real.
+- Descargar los 3 reportes desde `/admin/reports` y confirmar que abren correctamente en
+  Excel/un editor de texto (encoding UTF-8, separador de coma).
+- `/admin/models`: activar/desactivar el modelo sintético generado en Fase 5 y confirmar
+  que `/documents/[id]` refleja el cambio (404 cuando ningún modelo está activo).
