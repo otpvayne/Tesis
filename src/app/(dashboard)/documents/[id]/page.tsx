@@ -10,6 +10,7 @@ import { getDocumentStatusLabel, getDocumentTypeLabel } from "@/lib/constants/do
 import { safeInternalPath } from "@/lib/utils/safe-internal-path";
 import { Button } from "@/components/common/Button";
 import { PageHero } from "@/components/common/PageHero";
+import { WarningIcon } from "@/components/icons/WarningIcon";
 import { ProcessDocumentClient } from "./process-document-client";
 import { ValidationSection, type ValidationSectionField } from "./validation-section";
 import { ValidationSummary } from "./validation-summary";
@@ -163,7 +164,10 @@ export default async function DocumentDetailPage({
             <p className="font-data text-xs text-neutral-500 dark:text-neutral-500">
               confidence global: {((ocrResult.confidence ?? 0) * 100).toFixed(0)}% — {ocrResult.processing_ms ?? "?"}ms
               {ocrResult.processing_ms && ocrResult.processing_ms > 5000 ? (
-                <span className="text-caution-700 dark:text-caution-400"> ⚠ &gt;5s (RNF-001)</span>
+                <span className="ml-1 inline-flex items-center gap-1 text-caution-700 dark:text-caution-400">
+                  <WarningIcon className="h-3.5 w-3.5" />
+                  &gt;5s (RNF-001)
+                </span>
               ) : null}
             </p>
           </div>

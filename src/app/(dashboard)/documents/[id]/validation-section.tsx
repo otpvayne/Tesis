@@ -1,9 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/common/Button";
 import { ConfidenceBar } from "@/components/validation/ConfidenceBar";
+import { CheckIcon } from "@/components/icons/CheckIcon";
+import { EditIcon } from "@/components/icons/EditIcon";
+import { PendingIcon } from "@/components/icons/PendingIcon";
+import type { IconProps } from "@/components/icons/CheckIcon";
 import { VALIDATION_FIELD_LABELS } from "@/lib/constants/document-display";
 import { computeConfidenceLevel, parseFieldValue } from "@/modules/documents/validation-logic";
 import { saveValidation, rejectDocument } from "@/modules/documents/save-validation";
@@ -17,10 +21,10 @@ export interface ValidationSectionField {
 
 type RowStatus = "pending" | "validated" | "corrected";
 
-const STATUS_DISPLAY: Record<RowStatus, { text: string; className: string }> = {
-  validated: { text: "✅ OK", className: "text-brand-700 dark:text-brand-400" },
-  corrected: { text: "🔧 Editado", className: "text-caution-700 dark:text-caution-400" },
-  pending: { text: "⏳ Pendiente", className: "text-neutral-500 dark:text-neutral-500" },
+const STATUS_DISPLAY: Record<RowStatus, { icon: ComponentType<IconProps>; label: string; className: string }> = {
+  validated: { icon: CheckIcon, label: "OK", className: "text-brand-700 dark:text-brand-400" },
+  corrected: { icon: EditIcon, label: "Editado", className: "text-caution-700 dark:text-caution-400" },
+  pending: { icon: PendingIcon, label: "Pendiente", className: "text-neutral-500 dark:text-neutral-500" },
 };
 
 function displayValue(value: FieldValue): string {
@@ -29,8 +33,8 @@ function displayValue(value: FieldValue): string {
 
 /**
  * Tabla de validación humana (RF-007, Fase 5). Un campo con confianza >90%
- * arranca "✅ OK" sin que el usuario tenga que tocarlo (reduce fricción en
- * lo que el OCR ya acertó con seguridad); el resto arranca "⏳ Pendiente"
+ * arranca como "OK" sin que el usuario tenga que tocarlo (reduce fricción en
+ * lo que el OCR ya acertó con seguridad); el resto arranca como "Pendiente"
  * hasta que el usuario lo confirme o lo corrija.
  */
 export function ValidationSection({ documentId, fields }: { documentId: string; fields: ValidationSectionField[] }) {
@@ -163,6 +167,8 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
           <tbody>
             {fields.map((f, index) => {
               const status = statusFor(f);
+              const statusDisplay = STATUS_DISPLAY[status];
+              const StatusIcon = statusDisplay.icon;
               const isEditingThis = editingField === f.field;
               const isNumeric = (NUMERIC_VALIDATION_FIELDS as readonly ValidationFieldName[]).includes(f.field);
 
@@ -193,7 +199,12 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
                       <ConfidenceBar confidence={f.confidence} size="sm" showLabel={false} delayMs={index * 80} />
                     </div>
                   </td>
-                  <td className={`py-2 pr-2 ${STATUS_DISPLAY[status].className}`}>{STATUS_DISPLAY[status].text}</td>
+                  <td className={`py-2 pr-2 ${statusDisplay.className}`}>
+                    <span className="inline-flex items-center gap-1">
+                      <StatusIcon className="h-4 w-4" />
+                      {statusDisplay.label}
+                    </span>
+                  </td>
                   <td className="py-2">
                     {isEditingThis ? (
                       <div className="flex gap-1">

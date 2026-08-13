@@ -1,3 +1,4 @@
+import { CheckIcon } from "@/components/icons/CheckIcon";
 import { VALIDATION_FIELD_LABELS } from "@/lib/constants/document-display";
 import { formatDateTime } from "@/lib/utils/format-date";
 import { NUMERIC_VALIDATION_FIELDS, VALIDATION_FIELDS, type ValidationFieldName } from "@/modules/documents/validation-types";
@@ -15,7 +16,10 @@ export function ValidationSummary({
   return (
     <div className="animate-fade-in flex flex-col gap-3 rounded-lg border-2 border-brand-300 bg-brand-50/50 p-3 dark:border-brand-900 dark:bg-brand-950/20">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-50">✅ Documento validado</h2>
+        <h2 className="flex items-center gap-2 font-display text-base font-semibold text-neutral-900 dark:text-neutral-50">
+          <CheckIcon className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+          Documento validado
+        </h2>
         <p className="text-xs text-neutral-500 dark:text-neutral-500">{formatDateTime(validatedAt)}</p>
       </div>
 

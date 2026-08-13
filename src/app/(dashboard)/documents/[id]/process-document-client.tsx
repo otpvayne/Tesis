@@ -6,6 +6,7 @@ import { runOCRPipeline } from "@/modules/ocr/pipeline/ocr-pipeline";
 import { extractFields } from "@/modules/ocr/classification/field-extraction";
 import { CharacterClassifier } from "@/modules/ocr/classification/character-classifier";
 import { saveOcrResult, markOcrFailed, markOcrStarted } from "@/modules/documents/document-processing";
+import { WarningIcon } from "@/components/icons/WarningIcon";
 
 const PROCESSING_WARNING_THRESHOLD_MS = 5000; // RNF-001
 
@@ -101,8 +102,9 @@ export function ProcessDocumentClient({ documentId, signedUrl, documentType }: {
         </p>
       ) : null}
       {warning ? (
-        <p role="alert" className="text-sm text-amber-700 dark:text-amber-400">
-          ⚠ {warning}
+        <p role="alert" className="flex items-center gap-1 text-sm text-amber-700 dark:text-amber-400">
+          <WarningIcon className="h-4 w-4" />
+          {warning}
         </p>
       ) : null}
     </div>
