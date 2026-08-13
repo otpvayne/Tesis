@@ -1,4 +1,5 @@
 import { requireAdminPage } from "@/lib/auth/require-admin-page";
+import { PageHero } from "@/components/common/PageHero";
 import { VALIDATION_FIELD_LABELS } from "@/lib/constants/document-display";
 import { VALIDATION_FIELDS } from "@/modules/documents/validation-types";
 import { computeEditTrend, computeFieldEditStats, computeValidatorStats } from "@/modules/admin/stats";
@@ -41,8 +42,17 @@ export default async function AdminValidationsPage() {
   const trend = computeEditTrend(validations, TREND_DAYS);
 
   return (
-    <div className="animate-fade-in mx-auto flex max-w-2xl flex-col gap-6">
-      <h1 className="font-display text-xl font-semibold text-neutral-900 dark:text-neutral-50">Validaciones (RF-007)</h1>
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+      <PageHero
+        title="Validaciones"
+        description="Qué campos corrige más la gente, y quién está validando — esto guía qué caracteres etiquetar primero."
+        bullets={[
+          "Ver qué % de documentos validados tuvo al menos una corrección",
+          "Identificar qué campo (Proveedor, NIT, Fecha, IVA, Valor, Total) falla más",
+          "Ver la tendencia diaria de correcciones y quién está validando",
+        ]}
+        tip="El campo que más se corrige es la mejor pista de qué caracteres etiquetar primero en /ocr-lab/train."
+      />
 
       {error ? (
         <p className="text-sm text-critical-600 dark:text-critical-400">No se pudieron cargar las validaciones: {error.message}</p>

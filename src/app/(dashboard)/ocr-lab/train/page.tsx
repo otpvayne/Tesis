@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getDatasetStats } from "@/modules/ocr/classification/training-actions";
+import { PageHero } from "@/components/common/PageHero";
 import { OcrTrainClient } from "./ocr-train-client";
 
 /**
@@ -32,17 +33,17 @@ export default async function OcrLabTrainPage() {
   const initialStats = await getDatasetStats();
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-          OCR Lab — Entrenamiento (Fase 4c)
-        </h1>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          Sube una factura, etiqueta los caracteres segmentados y guárdalos en el dataset.
-          El HOG se calcula en el navegador; el entrenamiento/evaluación de kNN corre en
-          el servidor sobre lo ya guardado en Supabase.
-        </p>
-      </div>
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <PageHero
+        title="Entrenar modelo OCR"
+        description="Etiqueta caracteres reales de facturas para mejorar el modelo — el activo hoy es 100% sintético."
+        bullets={[
+          "Subir una factura y etiquetar cada carácter segmentado con la letra/número correcto",
+          "Guardar las muestras en el dataset (partición train/validation/test)",
+          "Entrenar un modelo nuevo sobre lo etiquetado y activarlo cuando esté listo",
+        ]}
+        tip="Objetivo: 100+ muestras por carácter (0-9, A-Z, a-z) antes del primer reentrenamiento con datos reales."
+      />
 
       <OcrTrainClient initialStats={initialStats} />
     </div>

@@ -738,3 +738,68 @@ Quedan deliberadamente sin tocar: `/documents/new` (formulario de subida + cáma
 (fuera del alcance del sistema de diseño pedido, es una herramienta interna de
 admin/entrenamiento). `npm run test` (332/332, estable en 2 corridas), `tsc`, `eslint`
 y `build` limpios después de esta ronda también.
+
+### Rediseño UX/UI — Fase 1: Sidebar + layout (estructura base)
+
+Pedido explícito del equipo de proceder **en fases separadas por commit**, empezando
+solo por la navegación vertical -- el resto (hero sections, iconos custom, animaciones
+adicionales) queda para después de que el equipo revise esta base en un navegador real.
+
+`src/components/layout/Sidebar.tsx` (nuevo, reemplaza `dashboard-nav.tsx` -- eliminado,
+sin otros usos) reemplaza el nav horizontal superior por un panel vertical de 240px:
+logo, sección principal (Documentos/Nuevo documento), sección Admin condicional
+(Dashboard/Documentos/Validaciones/Modelos/Reportes + **OCR Lab: Preview/Entrenar** --
+gap real cerrado, esas dos rutas nunca habían estado en ningún nav, solo alcanzables
+tecleando la URL directamente), perfil + logout al fondo. Estado activo por
+coincidencia exacta o, si no hay, el prefijo más específico entre los items (así
+`/documents/abc123` resalta "Documentos" y no confunde con "Nuevo documento", que
+también empieza con `/documents`). Mobile (`<768px`): colapsa a una barra superior
+delgada con botón de menú; el panel se convierte en un drawer con overlay. Desktop:
+panel fijo, siempre visible, sin botón de menú.
+
+**Sin iconos todavía, a propósito** -- el pedido original los trata como una fase
+aparte (Fase 3 de este mismo rediseño); agregarlos ahora habría sido adelantar trabajo
+pedido por separado, así que los items de nav son texto solo por ahora.
+
+`(dashboard)/layout.tsx`: `flex-col` en mobile (barra + contenido apilados),
+`md:flex-row` en desktop (sidebar + contenido lado a lado). Las 11 páginas del
+dashboard ya usaban `mx-auto max-w-*` -- siguen centrándose correctamente dentro del
+área de contenido más angosta que deja el sidebar, no hicieron falta cambios ahí.
+
+6 tests nuevos (`tests/unit/components/layout/Sidebar.test.tsx`): sección Admin
+condicional, estado activo por coincidencia exacta y por prefijo, toggle del menú
+mobile (`aria-expanded`). 338/338 en el proyecto, estable en 2 corridas. `tsc`,
+`eslint` y `build` limpios. **Sin verificación visual en navegador real** (`CLAUDE.md`
+§11) -- esta es exactamente la pieza estructural que el equipo pidió revisar antes de
+seguir con las fases 2-4.
+
+### Rediseño UX/UI — Fase 2: PageHero (orientación de usuario)
+
+`src/components/common/PageHero.tsx` (nuevo): título + descripción + "¿qué puedes
+hacer aquí?" (bullets) + tip, reemplazando el `<h1>` suelto en las 9 páginas pedidas.
+Animación escalonada real, no un fade simple: cada uno de los 3 bloques (título/
+descripción/info) entra con `--animate-hero-in` (traslado + opacidad, con
+`--ease-bounce` -- rebote leve, nuevo token, distinto del `--ease-signature` calmado
+que ya usaba `ConfidenceBar`) y `animation-delay` creciente (0/100/200ms).
+
+**`/documents/[id]` no estaba en la tabla de contenido del pedido original** (esa
+tabla tenía `/documents/new`, que no está en el alcance de Fase 2) -- se escribió
+contenido nuevo para esa página desde cero.
+
+**Corrección deliberada:** el pedido original sugería el tip "v0.4.0-ocr es actual"
+para `/admin/models` -- `v0.4.0-ocr` es el tag de Git que marca el cierre de Fase 4
+(todo el pipeline OCR), no el `version` de ningún modelo en `ocr_models` (el activo
+real hoy es `synthetic-node-2026-08-12T23:56:12.981Z`). Confundir ambos en un tip
+permanente habría sido incorrecto desde el día uno y falso en cuanto se entrene un
+modelo nuevo. Se escribió un tip real en su lugar (accuracy real vs. representatividad
+sobre datos sintéticos).
+
+Se retiró `animate-fade-in` del contenedor raíz en las páginas que ahora empiezan con
+`PageHero` (que ya trae su propia animación de entrada) -- evita animar opacidad dos
+veces en cascada sobre el mismo bloque.
+
+2 tests nuevos (`tests/unit/components/common/PageHero.test.tsx`): renderiza título/
+descripción/bullets/tip, y confirma el delay distinto por bloque. 340/340 en el
+proyecto, estable en 2 corridas. `tsc`, `eslint` y `build` limpios. Sin verificación
+visual en navegador real (`CLAUDE.md` §11) -- particularmente sin confirmar que el
+rebote de `--ease-bounce` se sienta bien y no exagerado.

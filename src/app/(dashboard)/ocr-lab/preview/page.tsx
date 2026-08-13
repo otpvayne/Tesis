@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { PageHero } from "@/components/common/PageHero";
 import { OcrPreviewClient } from "./ocr-preview-client";
 
 /**
@@ -28,16 +29,17 @@ export default async function OcrLabPreviewPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-          OCR Lab — Preview de preprocesamiento (Fase 4a)
-        </h1>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          Herramienta temporal de desarrollo. No sube nada a Supabase — todo el
-          procesamiento ocurre en el navegador sobre la imagen seleccionada.
-        </p>
-      </div>
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <PageHero
+        title="Laboratorio OCR — Preview"
+        description="Inspecciona paso a paso el preprocesamiento de una imagen: escala de grises, binarización, segmentación."
+        bullets={[
+          "Subir una imagen para ver cada etapa del preprocesamiento por separado",
+          "Comparar el resultado antes/después de cada paso",
+          "Diagnosticar por qué una factura específica no segmenta bien",
+        ]}
+        tip="Es una herramienta de depuración, no sube nada a Supabase — todo corre en tu navegador sobre la imagen que elijas."
+      />
 
       <OcrPreviewClient />
     </div>

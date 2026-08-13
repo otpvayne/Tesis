@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdminPage } from "@/lib/auth/require-admin-page";
 import { getAdminDashboardStats } from "@/modules/admin/stats";
 import { Card, StatCard } from "@/components/common/Card";
+import { PageHero } from "@/components/common/PageHero";
 import { ConfidenceBar } from "@/components/validation/ConfidenceBar";
 
 const QUICK_ACTION_CLASS = "rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-900";
@@ -13,8 +14,17 @@ export default async function AdminDashboardPage() {
   const maxPerDay = Math.max(1, ...stats.documentsPerDay.map((d) => d.count));
 
   return (
-    <div className="animate-fade-in mx-auto flex max-w-3xl flex-col gap-6">
-      <h1 className="font-display text-2xl font-bold text-neutral-900 dark:text-neutral-50">Dashboard Admin</h1>
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <PageHero
+        title="Dashboard Admin"
+        description="Métricas del sistema completo: cuántos documentos hay, qué tan bien está funcionando el OCR, y qué necesita atención."
+        bullets={[
+          "Ver el volumen de documentos y cuántos ya están validados",
+          "Monitorear la confidence promedio del pipeline OCR",
+          "Saltar directo a documentos, validaciones, modelos o reportes desde los accesos rápidos",
+        ]}
+        tip="Monitorea la tendencia de documentos por día — una caída brusca puede indicar un problema con el modelo activo o con el upload."
+      />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <StatCard label="Documentos" value={String(stats.totalDocuments)} />

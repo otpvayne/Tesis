@@ -64,6 +64,8 @@
 
   /* Easing compartido para las animaciones "suaves" del sistema (ConfidenceBar, transiciones de estado) */
   --ease-signature: cubic-bezier(0.16, 1, 0.3, 1);
+  /** Con leve rebote (overshoot >1 en el tercer punto) -- para entradas que deben sentirse con más vida (PageHero), no la desaceleración calma de --ease-signature. */
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /**
    * `--animate-*` genera utilidades `animate-*` en Tailwind v4 (igual que
@@ -73,6 +75,8 @@
   --animate-fade-in: fade-in 300ms var(--ease-signature) both;
   /** Para notificaciones tipo toast -- no existe todavía ningún componente de toast en la app, se deja la utilidad lista para cuando se necesite. */
   --animate-slide-in: slide-in 300ms var(--ease-signature) both;
+  /** PageHero -- entrada más notoria que un fade simple (traslado + opacidad, con rebote), usada en título/descripción/tips con delay escalonado por elemento. */
+  --animate-hero-in: hero-in 600ms var(--ease-bounce) both;
 }
 
 @keyframes fade-in {
@@ -88,6 +92,17 @@
   from {
     opacity: 0;
     transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
   }
   to {
     opacity: 1;

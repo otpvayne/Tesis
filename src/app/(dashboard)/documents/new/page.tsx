@@ -8,6 +8,7 @@ import { getDocumentTypeLabel } from "@/lib/constants/document-display";
 import { CameraCapture } from "@/modules/camera/CameraCapture";
 import { checkCameraAvailability } from "@/modules/camera/availability";
 import { isMobileDevice } from "@/modules/camera/device";
+import { PageHero } from "@/components/common/PageHero";
 
 /** `navigator.userAgentData` es experimental (solo Chromium) y todavía no
  * está en los tipos de TypeScript/lib.dom — se declara el mínimo necesario
@@ -101,10 +102,13 @@ export default function NewDocumentPage() {
   const showFallbackInputVisible = !showCamera && !selectedFile && !cameraAvailable;
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-4">
-      <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-        Nuevo documento
-      </h1>
+    <div className="mx-auto flex max-w-md flex-col gap-6">
+      <PageHero
+        title="Subir documento"
+        description="Sube una factura para que el sistema ejecute OCR automáticamente"
+        bullets={["Seleccionar archivo JPG o PNG", "Sistema procesa y extrae campos automáticamente", "Validar datos en siguiente paso"]}
+        tip="Fotos claras = mejor OCR. Iluminación natural, ángulo frontal."
+      />
 
       <form action={formAction} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1 text-sm font-medium text-neutral-700 dark:text-neutral-300">

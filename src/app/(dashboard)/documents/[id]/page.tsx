@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/utils/format-date";
 import { getDocumentStatusLabel, getDocumentTypeLabel } from "@/lib/constants/document-display";
 import { safeInternalPath } from "@/lib/utils/safe-internal-path";
 import { Button } from "@/components/common/Button";
+import { PageHero } from "@/components/common/PageHero";
 import { ProcessDocumentClient } from "./process-document-client";
 import { ValidationSection, type ValidationSectionField } from "./validation-section";
 import { ValidationSummary } from "./validation-summary";
@@ -102,7 +103,7 @@ export default async function DocumentDetailPage({
   });
 
   return (
-    <div className="animate-fade-in mx-auto flex max-w-2xl flex-col gap-6">
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <Link
         href={backHref}
         className="-mx-2 flex items-center gap-1 self-start rounded-md px-2 py-3 text-sm font-medium text-neutral-600 active:bg-neutral-100 dark:text-neutral-400 dark:active:bg-neutral-800"
@@ -110,7 +111,16 @@ export default async function DocumentDetailPage({
         ← Volver
       </Link>
 
-      <h1 className="font-display text-xl font-semibold text-neutral-900 dark:text-neutral-50">Documento</h1>
+      <PageHero
+        title="Documento"
+        description="Revisa la imagen original, los campos que el OCR extrajo, y confírmalos o corrígelos."
+        bullets={[
+          "Click 'Procesar documento (OCR)' si todavía no se ha procesado",
+          "Revisa cada campo — la barra de color indica qué tan segura estuvo la lectura",
+          "Corrige lo que esté mal y guarda la validación (o rechaza el documento si la captura no sirve)",
+        ]}
+        tip="Los campos con confianza alta ya aparecen marcados como 'OK' — enfócate en revisar los que estén en ámbar o rojo."
+      />
 
       {signedError || !signed ? (
         <p className="text-sm text-critical-600 dark:text-critical-400">
