@@ -5,25 +5,12 @@ físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
 Mansor, en conjunto con NETRIX Corporation.
 
-> Estado actual: **Fase 7 — Testing completo: E2E + performance + seguridad (en
-> cierre).** Sobre el motor OCR (Fase 4), la validación humana (Fase 5) y el área admin
-> (Fase 6), esta fase se topó de inmediato con `CLAUDE.md` §11 (nunca correr
-> servidor/navegador en esta sesión) — el enunciado pedía Playwright contra el deploy
-> real reportando "tests pasados", imposible de cumplir honestamente aquí. Enfoque
-> acordado con el equipo: **323 tests reales ejecutados** (Vitest, 52 archivos,
-> 95.1% statement coverage de los módulos con tests — Server Actions/Route
-> Handlers/páginas quedan fuera por depender de `next/headers`), incluyendo un gap real
-> de seguridad cerrado (`ocr_models`/`ocr_training_samples`, RLS admin-only desde
-> Fase 1, nunca antes probada contra una sesión real — ahora 11/11); **4 archivos
-> Playwright** (`tests/{e2e,performance,security,regression}/`) escritos y corregidos
-> contra el código real pero **no ejecutados** (requieren navegador + credenciales de
-> prueba reales que el equipo debe crear); y **`tests/MANUAL_CHECKLIST.md`** para
-> verificar en un navegador/celular real. Ninguna cifra de "test pasado" se afirma sin
-> haberse corrido de verdad. Detalle completo en `docs/requirements/traceability.md`
-> ("Entregables técnicos de Fase 7"). El modelo OCR activado en Fase 5 sigue con
-> accuracy real de **16.1%** (sintético) — reentrenar con caracteres reales en
-> `/ocr-lab/train` sigue pendiente. Ver
-> [`docs/roadmap.md`](docs/roadmap.md) y `CLAUDE.md` §13 para desviaciones pendientes.
+> Estado actual: **Fase 8 — Deploy final: integración, versionado y documentación (en
+> cierre).** Fases 4-7 integradas a `main`. Ver la sección
+> ["🏆 Estado final — Fase 8"](#-estado-final--fase-8) más abajo para el resumen
+> completo con números reales (no estimados), y `CLAUDE.md` §13 /
+> `docs/requirements/traceability.md` para el detalle fase por fase y las
+> desviaciones pendientes.
 
 ## Equipo
 
@@ -238,10 +225,52 @@ R: v1 es sintético (88.2% accuracy, sin datos reales todavía). Es esperado. Us
 
 ### Documentación
 
-- Detalles técnicos: [`docs/ocr/README.md`](docs/ocr/README.md)
 - Algoritmos: [`docs/ocr/algorithms.md`](docs/ocr/algorithms.md)
 - Extracción: [`docs/ocr/extraction.md`](docs/ocr/extraction.md)
+- Entrenamiento: [`docs/ocr/training.md`](docs/ocr/training.md)
 - Evaluación: [`docs/ocr/evaluation.md`](docs/ocr/evaluation.md)
+
+## 🏆 Estado final — Fase 8
+
+**Fases 4-8 integradas a `main`.** Esto es un MVP funcional de punta a punta con datos
+**sintéticos** — no un sistema terminado con accuracy usable sobre facturas reales de
+Mansor todavía. Ver `CLAUDE.md` §13 y `docs/requirements/traceability.md` para el
+detalle completo fase por fase; esta sección resume solo los números reales, medidos en
+esta sesión (nunca estimados).
+
+### Status por componente
+
+| Componente | Estado | Notas |
+|---|---|---|
+| OCR Pipeline (4a-4f) | ✅ Implementado | Preprocesamiento → segmentación → clasificación (HOG+kNN propios) → extracción de 6 campos → evaluación. Sin dependencias de OCR/CV/ML de terceros (`CLAUDE.md` §7). |
+| UI de validación (5) | ✅ Implementado, sin verificación visual | Edición inline, estados ✅/🔧/⏳, persistencia real contra Supabase — interacción en navegador pendiente de verificación manual (`CLAUDE.md` §11). |
+| Admin panel (6) | ✅ Implementado, sin verificación visual | Dashboard, documentos, validaciones, modelos, reportes CSV/JSON. |
+| Testing (7) | ✅ Regresión real + ⚠️ E2E sin ejecutar | Ver tabla de métricas abajo. Playwright escrito y corregido contra el código real, nunca corrido en esta sesión (`CLAUDE.md` §11). |
+| Deploy (8) | ⏳ Sin confirmar | No hay evidencia en este repo (`vercel.json`, `.vercel/`) de un deploy activo — ver [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) para las instrucciones reales de cómo desplegarlo. |
+
+### Métricas reales (medidas, no estimadas)
+
+| Métrica | Valor real | Objetivo | Cumple |
+|---|---|---|---|
+| Tests | 323/323 passed, 0 fallos | — | ✅ |
+| Cobertura (statements) | 95.1% — solo de los módulos que los tests importan (lógica pura); Server Actions/Route Handlers/páginas quedan fuera por depender de `next/headers` | — | — (no comparable a "90% de rutas críticas") |
+| Performance OCR | 4849.2 ms, factura sintética representativa (~1184 caracteres), Fase 4e | <5000 ms (RNF-001) | ⚠️ dentro del límite, margen mínimo |
+| Reproducibilidad | 100% (varianza 0 exacta, 5 corridas) | 100% | ✅ |
+| Campos extraídos (RF-003) | 6/6 (Proveedor, NIT, Fecha, IVA, Valor, Total) | 6 | ✅ |
+| **Accuracy del modelo activo** | **16.1%** — 62 clases, medido sobre su propio split de test **sintético** (no facturas reales de Mansor: esa partición sigue vacía, ver `CLAUDE.md` §13) | — | ⚠️ muy bajo, esperado para v1 sintético |
+
+**Sobre el 16.1%:** es el único número de accuracy que corresponde al modelo
+*realmente activo* hoy (`ocr_models`, generado en Fase 5 vía `npm run generate:model`).
+Una corrida distinta y no comparable, de Fase 4f, midió 88.2% sobre un alfabeto
+sintético de solo 2 formas (17 muestras) para validar que la aritmética de evaluación
+era correcta — nunca fue el modelo activo ni una cifra representativa. Ningún número de
+accuracy en este proyecto viene todavía de una factura real de Mansor.
+
+### Versión
+
+Tag de este cierre: `v0.5.0-complete` (se crea al fusionar esta fase a `main`, junto con
+el merge — `CLAUDE.md` §3, tags solo al integrar). Ver [`CHANGELOG.md`](CHANGELOG.md)
+para el historial completo.
 
 ## Proceso de trabajo
 
