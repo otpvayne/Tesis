@@ -39,7 +39,7 @@ export function PageHero({ title, description, bullets, tip }: PageHeroProps) {
           </ul>
         </div>
 
-        <div className="flex-1 rounded-md bg-brand-600 p-3">
+        <div className="flex flex-1 flex-col items-center justify-center rounded-md bg-brand-600 p-3 text-center">
           <p className="text-xs text-white">
             <strong>Tip:</strong> {tip}
           </p>
