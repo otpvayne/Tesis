@@ -738,3 +738,37 @@ Quedan deliberadamente sin tocar: `/documents/new` (formulario de subida + cáma
 (fuera del alcance del sistema de diseño pedido, es una herramienta interna de
 admin/entrenamiento). `npm run test` (332/332, estable en 2 corridas), `tsc`, `eslint`
 y `build` limpios después de esta ronda también.
+
+### Rediseño UX/UI — Fase 1: Sidebar + layout (estructura base)
+
+Pedido explícito del equipo de proceder **en fases separadas por commit**, empezando
+solo por la navegación vertical -- el resto (hero sections, iconos custom, animaciones
+adicionales) queda para después de que el equipo revise esta base en un navegador real.
+
+`src/components/layout/Sidebar.tsx` (nuevo, reemplaza `dashboard-nav.tsx` -- eliminado,
+sin otros usos) reemplaza el nav horizontal superior por un panel vertical de 240px:
+logo, sección principal (Documentos/Nuevo documento), sección Admin condicional
+(Dashboard/Documentos/Validaciones/Modelos/Reportes + **OCR Lab: Preview/Entrenar** --
+gap real cerrado, esas dos rutas nunca habían estado en ningún nav, solo alcanzables
+tecleando la URL directamente), perfil + logout al fondo. Estado activo por
+coincidencia exacta o, si no hay, el prefijo más específico entre los items (así
+`/documents/abc123` resalta "Documentos" y no confunde con "Nuevo documento", que
+también empieza con `/documents`). Mobile (`<768px`): colapsa a una barra superior
+delgada con botón de menú; el panel se convierte en un drawer con overlay. Desktop:
+panel fijo, siempre visible, sin botón de menú.
+
+**Sin iconos todavía, a propósito** -- el pedido original los trata como una fase
+aparte (Fase 3 de este mismo rediseño); agregarlos ahora habría sido adelantar trabajo
+pedido por separado, así que los items de nav son texto solo por ahora.
+
+`(dashboard)/layout.tsx`: `flex-col` en mobile (barra + contenido apilados),
+`md:flex-row` en desktop (sidebar + contenido lado a lado). Las 11 páginas del
+dashboard ya usaban `mx-auto max-w-*` -- siguen centrándose correctamente dentro del
+área de contenido más angosta que deja el sidebar, no hicieron falta cambios ahí.
+
+6 tests nuevos (`tests/unit/components/layout/Sidebar.test.tsx`): sección Admin
+condicional, estado activo por coincidencia exacta y por prefijo, toggle del menú
+mobile (`aria-expanded`). 338/338 en el proyecto, estable en 2 corridas. `tsc`,
+`eslint` y `build` limpios. **Sin verificación visual en navegador real** (`CLAUDE.md`
+§11) -- esta es exactamente la pieza estructural que el equipo pidió revisar antes de
+seguir con las fases 2-4.
