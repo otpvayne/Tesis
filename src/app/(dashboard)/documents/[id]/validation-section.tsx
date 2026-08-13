@@ -140,7 +140,7 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
   const hasUnsavedEdit = editingField !== null;
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border-2 border-brand-200 bg-brand-50/40 p-3 dark:border-brand-800 dark:bg-brand-950/20">
+    <div className="animate-fade-in flex flex-col gap-3 rounded-lg border-2 border-brand-200 bg-brand-50/40 p-3 dark:border-brand-800 dark:bg-brand-950/20">
       <div>
         <h2 className="font-display text-base font-semibold text-neutral-900 dark:text-neutral-50">Validación de campos (Fase 5)</h2>
         <p className="text-xs text-neutral-500 dark:text-neutral-500">
@@ -161,7 +161,7 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
             </tr>
           </thead>
           <tbody>
-            {fields.map((f) => {
+            {fields.map((f, index) => {
               const status = statusFor(f);
               const isEditingThis = editingField === f.field;
               const isNumeric = (NUMERIC_VALIDATION_FIELDS as readonly ValidationFieldName[]).includes(f.field);
@@ -190,7 +190,7 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
                   </td>
                   <td className="py-2 pr-2">
                     <div className="w-24">
-                      <ConfidenceBar confidence={f.confidence} size="sm" showLabel={false} />
+                      <ConfidenceBar confidence={f.confidence} size="sm" showLabel={false} delayMs={index * 80} />
                     </div>
                   </td>
                   <td className={`py-2 pr-2 ${STATUS_DISPLAY[status].className}`}>{STATUS_DISPLAY[status].text}</td>

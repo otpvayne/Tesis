@@ -32,7 +32,7 @@ export function Button({ variant = "primary", size = "md", className = "", disab
   return (
     <button
       disabled={disabled}
-      className={`rounded-md font-medium transition-colors disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
+      className={`rounded-md font-medium transition-colors duration-200 disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
       {...props}
     />
   );

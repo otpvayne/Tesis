@@ -64,6 +64,35 @@
 
   /* Easing compartido para las animaciones "suaves" del sistema (ConfidenceBar, transiciones de estado) */
   --ease-signature: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /**
+   * `--animate-*` genera utilidades `animate-*` en Tailwind v4 (igual que
+   * `--color-*`/`--font-*`) -- los `@keyframes` referenciados se declaran
+   * abajo, fuera de `@theme` (no son tokens, son reglas normales de CSS).
+   */
+  --animate-fade-in: fade-in 300ms var(--ease-signature) both;
+  /** Para notificaciones tipo toast -- no existe todavía ningún componente de toast en la app, se deja la utilidad lista para cuando se necesite. */
+  --animate-slide-in: slide-in 300ms var(--ease-signature) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /**

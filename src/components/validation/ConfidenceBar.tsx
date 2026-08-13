@@ -8,6 +8,8 @@ export interface ConfidenceBarProps {
   confidence: number;
   showLabel?: boolean;
   size?: "sm" | "md";
+  /** Retraso antes de empezar a animar -- para efecto "staggered" cuando se muestran varias barras seguidas (ej. las 6 filas de la tabla de validación): `index * 80` así cada fila arranca un poco después que la anterior. */
+  delayMs?: number;
 }
 
 const HEIGHT_CLASSES = { sm: "h-1.5", md: "h-2.5" };
@@ -27,17 +29,23 @@ const HEIGHT_CLASSES = { sm: "h-1.5", md: "h-2.5" };
  * `src/styles/theme.css` (fuerza `transition-duration` casi a 0), no hace
  * falta condicionarlo aquí.
  */
-export function ConfidenceBar({ confidence, showLabel = true, size = "md" }: ConfidenceBarProps) {
+export function ConfidenceBar({ confidence, showLabel = true, size = "md", delayMs = 0 }: ConfidenceBarProps) {
   const clamped = Math.min(1, Math.max(0, confidence));
   const [width, setWidth] = useState(0);
 
   useEffect(() => {
-    // Un frame en 0% antes de animar a clamped% -- si se setea directo al
-    // montar, el navegador puede saltarse la transición (no hay "antes" que
-    // interpolar).
-    const raf = requestAnimationFrame(() => setWidth(clamped * 100));
-    return () => cancelAnimationFrame(raf);
-  }, [clamped]);
+    // `delayMs` retrasa el arranque (efecto stagger); el frame en 0% antes
+    // de animar a clamped% sigue haciendo falta -- si se setea directo, el
+    // navegador puede saltarse la transición (no hay "antes" que interpolar).
+    let raf = 0;
+    const timeout = setTimeout(() => {
+      raf = requestAnimationFrame(() => setWidth(clamped * 100));
+    }, delayMs);
+    return () => {
+      clearTimeout(timeout);
+      cancelAnimationFrame(raf);
+    };
+  }, [clamped, delayMs]);
 
   const level = computeConfidenceLevel(clamped);
   const levelLabel = { high: "alta", medium: "media", low: "baja" }[level];
@@ -55,7 +63,7 @@ export function ConfidenceBar({ confidence, showLabel = true, size = "md" }: Con
         aria-label={`Confianza ${levelLabel}`}
       >
         <div
-          className="h-full rounded-full transition-[width] duration-700 ease-signature"
+          className="h-full rounded-full transition-[width] duration-[600ms] ease-signature"
           style={{
             width: `${width}%`,
             backgroundImage: "linear-gradient(to right, var(--color-critical-500), var(--color-caution-500), var(--color-brand-600))",

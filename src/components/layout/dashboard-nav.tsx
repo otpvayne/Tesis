@@ -31,35 +31,35 @@ export function DashboardNav({ email, role }: DashboardNavProps) {
         </div>
       </div>
 
-      <nav className="flex gap-4 text-sm text-neutral-600 dark:text-neutral-400">
-        <Link href="/documents" className="hover:text-brand-700 dark:hover:text-brand-400">
+      <nav className="flex gap-4 text-sm font-medium text-neutral-600 dark:text-neutral-400">
+        <Link href="/documents" className="transition-colors hover:text-brand-700 dark:hover:text-brand-400">
           Mis documentos
         </Link>
-        <Link href="/documents/new" className="hover:text-brand-700 dark:hover:text-brand-400">
+        <Link href="/documents/new" className="transition-colors hover:text-brand-700 dark:hover:text-brand-400">
           Nuevo documento
         </Link>
         {isAdmin ? (
-          <Link href="/admin" className="hover:text-brand-700 dark:hover:text-brand-400">
+          <Link href="/admin" className="transition-colors hover:text-brand-700 dark:hover:text-brand-400">
             Admin: dashboard
           </Link>
         ) : null}
         {isAdmin ? (
-          <Link href="/admin/documents" className="hover:text-brand-700 dark:hover:text-brand-400">
+          <Link href="/admin/documents" className="transition-colors hover:text-brand-700 dark:hover:text-brand-400">
             Admin: documentos
           </Link>
         ) : null}
         {isAdmin ? (
-          <Link href="/admin/validations" className="hover:text-brand-700 dark:hover:text-brand-400">
+          <Link href="/admin/validations" className="transition-colors hover:text-brand-700 dark:hover:text-brand-400">
             Admin: validaciones
           </Link>
         ) : null}
         {isAdmin ? (
-          <Link href="/admin/models" className="hover:text-brand-700 dark:hover:text-brand-400">
+          <Link href="/admin/models" className="transition-colors hover:text-brand-700 dark:hover:text-brand-400">
             Admin: modelos
           </Link>
         ) : null}
         {isAdmin ? (
-          <Link href="/admin/reports" className="hover:text-brand-700 dark:hover:text-brand-400">
+          <Link href="/admin/reports" className="transition-colors hover:text-brand-700 dark:hover:text-brand-400">
             Admin: reportes
           </Link>
         ) : null}

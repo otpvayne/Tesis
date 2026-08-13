@@ -702,3 +702,39 @@ sesión): todo lo de arriba compila (`tsc`/`eslint`/`build` limpios) y pasa sus 
 automatizados, pero cómo se ve realmente (contraste, alineación, la animación del
 gradiente) no se confirmó en un navegador real. Pendiente de revisión visual del
 equipo.
+
+### Segunda ronda: "aplicar a todas las páginas"
+
+El pedido siguiente pidió extender el sistema a todas las páginas y reportar "cuando
+esté visible en Vercel" -- lo segundo no se puede cumplir en esta sesión (`CLAUDE.md`
+§11, y no hay evidencia de un deploy real confirmado, ver `docs/DEPLOYMENT.md`), se
+avisó explícitamente antes de proceder. También traía valores que colisionaban con
+decisiones ya tomadas: `#D97706` como color "secondary" es prácticamente el
+`amber-600` por defecto de Tailwind -- exactamente el look genérico que la paleta
+`caution` ya evitaba a propósito, así que se reutilizó `caution` en vez de sumar una
+escala casi duplicada; `#F3F4F6`/`#E5E7EB` son `gray-100`/`gray-200` (paleta `gray`),
+pero toda la app usa `neutral-*` -- se mapearon a `neutral-100`/`neutral-200` en vez de
+introducir una segunda escala de grises; "verde/ámbar/rojo para OK/Revisar/Error" no
+corresponde a ningún estado real (los estados reales son ✅ OK/🔧 Editado/⏳ Pendiente,
+la confianza es un valor continuo aparte) -- se aplicó el color a los estados que sí
+existen.
+
+Alcance ampliado en esta ronda: `documents/page.tsx` (tarjetas con `Card`, badges de
+status por tono), `documents/[id]/page.tsx` + `validation-summary.tsx` (colores/
+tipografía, ya no solo `validation-section.tsx`), `admin/page.tsx` (spacing a 24px),
+`admin/documents/page.tsx` (tabla: header `neutral-100`, hover, `Button`),
+`admin/validations/page.tsx`, `admin/models/{page,models-list-client}.tsx` (`Button`
+para activar/desactivar), `admin/reports/page.tsx`, y `dashboard-nav.tsx` (nav items en
+peso 500). Animaciones nuevas: `--animate-fade-in`/`--animate-slide-in` en
+`theme.css` (Tailwind v4 `--animate-*` genera utilidades `animate-*` automáticamente),
+aplicado a los contenedores principales de cada página; `ConfidenceBar` ahora acepta
+`delayMs` para el efecto staggered en las 6 filas de la tabla de validación
+(`index * 80`); `Button` con `duration-200` explícito. `--animate-slide-in` queda listo
+mas no se usa todavía -- no existe ningún componente de toast en la app (no se
+construyó uno nuevo, no estaba en el alcance original).
+
+Quedan deliberadamente sin tocar: `/documents/new` (formulario de subida + cámara),
+`/login`/`/register` (login ya se hizo en la ronda anterior, register no), `/ocr-lab/*`
+(fuera del alcance del sistema de diseño pedido, es una herramienta interna de
+admin/entrenamiento). `npm run test` (332/332, estable en 2 corridas), `tsc`, `eslint`
+y `build` limpios después de esta ronda también.

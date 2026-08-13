@@ -13,10 +13,10 @@ export default async function AdminDashboardPage() {
   const maxPerDay = Math.max(1, ...stats.documentsPerDay.map((d) => d.count));
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8">
+    <div className="animate-fade-in mx-auto flex max-w-3xl flex-col gap-6">
       <h1 className="font-display text-2xl font-bold text-neutral-900 dark:text-neutral-50">Dashboard Admin</h1>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <StatCard label="Documentos" value={String(stats.totalDocuments)} />
         <StatCard label="Validados" value={`${stats.validatedDocuments} (${stats.validationPercentage.toFixed(0)}%)`} tone="brand" />
 

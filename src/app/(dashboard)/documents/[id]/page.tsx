@@ -8,6 +8,7 @@ import { DOCUMENTS_STORAGE_BUCKET } from "@/modules/documents/types";
 import { formatDateTime } from "@/lib/utils/format-date";
 import { getDocumentStatusLabel, getDocumentTypeLabel } from "@/lib/constants/document-display";
 import { safeInternalPath } from "@/lib/utils/safe-internal-path";
+import { Button } from "@/components/common/Button";
 import { ProcessDocumentClient } from "./process-document-client";
 import { ValidationSection, type ValidationSectionField } from "./validation-section";
 import { ValidationSummary } from "./validation-summary";
@@ -101,7 +102,7 @@ export default async function DocumentDetailPage({
   });
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-4">
+    <div className="animate-fade-in mx-auto flex max-w-2xl flex-col gap-6">
       <Link
         href={backHref}
         className="-mx-2 flex items-center gap-1 self-start rounded-md px-2 py-3 text-sm font-medium text-neutral-600 active:bg-neutral-100 dark:text-neutral-400 dark:active:bg-neutral-800"
@@ -109,10 +110,10 @@ export default async function DocumentDetailPage({
         ← Volver
       </Link>
 
-      <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">Documento</h1>
+      <h1 className="font-display text-xl font-semibold text-neutral-900 dark:text-neutral-50">Documento</h1>
 
       {signedError || !signed ? (
-        <p className="text-sm text-red-600 dark:text-red-400">
+        <p className="text-sm text-critical-600 dark:text-critical-400">
           No se pudo generar la vista del archivo.
         </p>
       ) : (
@@ -146,13 +147,13 @@ export default async function DocumentDetailPage({
       ) : null}
 
       {ocrResult && extractedData ? (
-        <div className="flex flex-col gap-3 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+        <div className="animate-fade-in flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Campos extraídos (RF-003)</p>
-            <p className="text-xs text-neutral-500 dark:text-neutral-500">
+            <p className="font-data text-xs text-neutral-500 dark:text-neutral-500">
               confidence global: {((ocrResult.confidence ?? 0) * 100).toFixed(0)}% — {ocrResult.processing_ms ?? "?"}ms
               {ocrResult.processing_ms && ocrResult.processing_ms > 5000 ? (
-                <span className="text-amber-700 dark:text-amber-400"> ⚠ &gt;5s (RNF-001)</span>
+                <span className="text-caution-700 dark:text-caution-400"> ⚠ &gt;5s (RNF-001)</span>
               ) : null}
             </p>
           </div>
@@ -164,7 +165,7 @@ export default async function DocumentDetailPage({
               validatedAt={latestValidation.validated_at}
             />
           ) : doc.status === "rejected" ? (
-            <p className="text-sm text-red-600 dark:text-red-400">Documento rechazado — no se valida.</p>
+            <p className="text-sm text-critical-600 dark:text-critical-400">Documento rechazado — no se valida.</p>
           ) : (
             <ValidationSection documentId={doc.id} fields={validationFields} />
           )}
@@ -177,12 +178,9 @@ export default async function DocumentDetailPage({
       ) : null}
 
       <form action={deleteDocument.bind(null, doc.id)}>
-        <button
-          type="submit"
-          className="rounded-md border border-red-300 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-900 dark:text-red-400"
-        >
+        <Button type="submit" variant="danger">
           Eliminar documento
-        </button>
+        </Button>
       </form>
     </div>
   );
