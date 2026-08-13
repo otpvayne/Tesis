@@ -29,7 +29,7 @@ export function PageHero({ title, description, bullets, tip }: PageHeroProps) {
         {description}
       </p>
 
-      <div className="animate-hero-in flex flex-col gap-3 sm:flex-row" style={{ animationDelay: "200ms" }}>
+      <div className="animate-hero-in flex flex-col gap-3 md:flex-row" style={{ animationDelay: "200ms" }}>
         <div className="flex-1 rounded-md bg-neutral-50 p-3 dark:bg-neutral-950">
           <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">¿Qué puedes hacer aquí?</p>
           <ul className="mt-1 list-inside list-disc text-xs text-neutral-600 dark:text-neutral-400">
@@ -39,8 +39,8 @@ export function PageHero({ title, description, bullets, tip }: PageHeroProps) {
           </ul>
         </div>
 
-        <div className="flex-1 rounded-md border border-brand-200 bg-brand-50 p-3 dark:border-brand-800 dark:bg-brand-950/30">
-          <p className="text-xs text-brand-800 dark:text-brand-300">
+        <div className="flex-1 rounded-md bg-brand-600 p-3">
+          <p className="text-xs text-white">
             <strong>Tip:</strong> {tip}
           </p>
         </div>
