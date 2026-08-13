@@ -561,3 +561,84 @@ por el mismo criterio ya aplicado a `training-actions.ts`/`document-processing.t
   Excel/un editor de texto (encoding UTF-8, separador de coma).
 - `/admin/models`: activar/desactivar el modelo sintético generado en Fase 5 y confirmar
   que `/documents/[id]` refleja el cambio (404 cuando ningún modelo está activo).
+
+## Entregables técnicos de Fase 7 (Testing: E2E + performance + seguridad)
+
+**Conflicto real detectado antes de escribir código:** el enunciado pide correr
+Playwright (E2E/performance/seguridad) contra el deploy de Vercel y reportar "todos los
+tests pasados" — `CLAUDE.md` §11 prohíbe explícitamente correr un servidor o usar
+herramientas de navegador/automatización visual en esta sesión, y no existen
+credenciales reales de prueba ni fixtures de imagen en el repo. Se acordó con el equipo
+(confirmado explícitamente antes de proceder) un enfoque de 3 partes: (1) trabajo
+ejecutado y verificado de verdad en esta sesión con Vitest, (2) archivos Playwright
+escritos y corregidos contra el código real pero **no ejecutados**, (3) checklist manual
+para que el equipo los ejecute.
+
+### Parte 1 — Ejecutado y verificado en esta sesión
+
+| Entregable | Comando | Resultado real |
+|---|---|---|
+| Regresión de la suite completa | `npm run test` | **323/323 tests, 52 archivos**, ~24s, estable en múltiples corridas |
+| Cobertura real (`@vitest/coverage-v8`, nuevo) | `npm run test:coverage` | **95.1% statements / 85.7% branches / 94.3% funciones / 96.1% líneas** -- **solo de los módulos que los tests importan** (lógica pura: preprocesamiento, segmentación, clasificación, evaluación, admin/stats, admin/csv, admin/reports, documents/queries). Server Actions, Route Handlers, `proxy.ts` y todos los `page.tsx` quedan en 0% de cobertura de este reporte porque dependen de `next/headers`/renderizado real — no es que fallen, es que Vitest no puede importarlos fuera de un request real de Next (mismo motivo documentado desde Fase 4c). **No es "90% de rutas críticas cubiertas"** como pedía el enunciado -- es 95% de la lógica de negocio pura, con las rutas/Server Actions fuera del cálculo. |
+| Tipos | `npx tsc --noEmit` | Sin errores |
+| Lint | `npx eslint .` | Sin errores ni warnings (se agregó `coverage/**` a los ignores de ESLint) |
+| Build | `npm run build` | Compila, 19 rutas |
+| **Gap real cerrado**: `ocr_models`/`ocr_training_samples` (RLS `is_admin()`-only desde Fase 1) nunca se habían probado contra una sesión real, ni admin ni no-admin -- exactamente las tablas detrás de `/admin/models` | `tests/integration/admin-only-tables-rls.test.ts` | **11/11**, contra Supabase real, con sesión ADMIN real (no `service_role`) |
+| **Gap real cerrado**: lógica de armado de CSV de los reportes vivía inline en Route Handlers sin ningún test | extraída a `src/modules/admin/reports.ts` (`buildDocumentsReportRows`/`buildValidationsReportRows`) | `tests/unit/modules/admin/reports.test.ts`: **10/10** |
+| Validación de errores de upload (tamaño/MIME/magic bytes) | ya existía, revisado -- sin gap real | `tests/unit/modules/documents/validation.test.ts`: 11/11 (sin cambios, ya comprehensivo) |
+
+### Parte 2 — Playwright: código fuente, NO ejecutado
+
+`playwright.config.ts` + `tests/{e2e/user-flow.e2e.ts, performance/performance.test.ts,
+security/security.test.ts, regression/regression.test.ts}` + fixtures reales
+(`tests/fixtures/factura-test.jpg`, generado con `node-canvas`, sintético — no es una
+factura real de Mansor; `tests/fixtures/invalid.txt`). `@playwright/test` instalado como
+devDependency; navegadores (`npx playwright install`) **no descargados** en esta sesión.
+
+Cada archivo corrigió contra el código real (no contra las suposiciones del enunciado
+original), documentado inline:
+
+- Rutas reales: `/login` (no `/sign-in`), login redirige a `/` (no `/documents`).
+- Selectores reales: `input[name="email"]`/`input[name="password"]`, botón "Ingresar"
+  (no "Iniciar sesión", ese es el `<h1>`), "Subir documento" (no "Subir"), sin
+  `img[alt="Preview"]` (no existe, solo se muestra el nombre del archivo).
+- `/admin` redirige a `/` para un no-admin, no a `/documents`.
+- Mensajes de error reales: `validateUploadFile` ("Solo se aceptan imágenes JPG o
+  PNG.", "...supera el tamaño máximo permitido (10 MB).") en vez de los textos
+  inventados del enunciado ("Formato no válido", "Archivo muy grande").
+- `/admin/documents` pagina de a **20**, no 50 (`pageSize` real de `listDocuments`).
+- Descargas de `/admin/reports` son `<a href>`, no `<button>`.
+- Placeholder real de búsqueda: "ID exacto (UUID completo)...", no "Buscar...".
+- KPI real: "Confidence OCR promedio", no "Accuracy OCR" (renombrado a propósito en
+  Fase 6).
+- Sin credenciales/ids hardcodeados (`test@mansor.com`, `doc-test-123`, etc. no
+  existen) -- todo vía variables de entorno (`E2E_USER_EMAIL`, `E2E_KNOWN_DOCUMENT_ID`,
+  ...) que el equipo debe proveer con cuentas de prueba reales, nunca datos reales de
+  Mansor.
+- El test de "SQL injection" se documenta honestamente como smoke test de UI, no como
+  prueba real de inyección -- Supabase-js/PostgREST parametrizan todas las queries de
+  este proyecto, no hay concatenación de SQL crudo en ningún punto (`modules/documents/queries.ts`).
+
+Los 4 archivos + `playwright.config.ts` pasan `tsc --noEmit` y `eslint` sin errores
+(sintaxis y tipos correctos), y **no** son recogidos por la config de Vitest
+(`vitest.config.mts` solo incluye `tests/unit/**` y `tests/integration/**`) -- correr
+`npm run test` sigue dando 323/323, sin colisión.
+
+### Parte 3 — Checklist manual
+
+`tests/MANUAL_CHECKLIST.md` -- 5 secciones (Funcionalidad, Performance, Seguridad,
+Navegación, Datos), adaptado a la UI real de Fases 2-6 (sin "breadcrumbs", que no
+existen en este proyecto -- se usa el link "← Volver"; con pageSize real de 20, no 50;
+etc.).
+
+### Qué debe hacer el equipo para completar Fase 7 de verdad
+
+1. `npx playwright install chromium`.
+2. Crear cuentas de prueba reales (USER + ADMIN) en el proyecto Supabase real, sin usar
+   datos de Mansor, y exportar `E2E_USER_EMAIL`/`E2E_USER_PASSWORD`/`E2E_ADMIN_EMAIL`/
+   `E2E_ADMIN_PASSWORD` (+ `E2E_OTHER_USER_EMAIL`/`E2E_KNOWN_DOCUMENT_ID` para los casos
+   que los necesitan).
+3. Confirmar que hay un modelo OCR activo.
+4. `npm run dev` (u otro servidor) + `E2E_BASE_URL=... npx playwright test`.
+5. Correr `tests/MANUAL_CHECKLIST.md` en un navegador/celular real.
+6. Reportar los resultados reales -- **nunca asumir que "escrito" significa "pasó"**.
