@@ -41,16 +41,16 @@ export default async function AdminValidationsPage() {
   const trend = computeEditTrend(validations, TREND_DAYS);
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">Validaciones (RF-007)</h1>
+    <div className="animate-fade-in mx-auto flex max-w-2xl flex-col gap-6">
+      <h1 className="font-display text-xl font-semibold text-neutral-900 dark:text-neutral-50">Validaciones (RF-007)</h1>
 
       {error ? (
-        <p className="text-sm text-red-600 dark:text-red-400">No se pudieron cargar las validaciones: {error.message}</p>
+        <p className="text-sm text-critical-600 dark:text-critical-400">No se pudieron cargar las validaciones: {error.message}</p>
       ) : totalValidated === 0 ? (
         <p className="text-sm text-neutral-600 dark:text-neutral-400">Todavía no hay documentos validados.</p>
       ) : (
         <>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-neutral-200 p-3 text-sm dark:border-neutral-800">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-neutral-200 p-3 text-sm dark:border-neutral-800">
             <dt className="text-neutral-500 dark:text-neutral-400">Documentos validados</dt>
             <dd className="text-neutral-900 dark:text-neutral-50">{totalValidated}</dd>
             <dt className="text-neutral-500 dark:text-neutral-400">Con al menos un campo corregido</dt>
@@ -59,7 +59,7 @@ export default async function AdminValidationsPage() {
             </dd>
           </dl>
 
-          <section className="rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+          <section className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
             <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Campos más corregidos</p>
             <table className="w-full text-left text-sm">
               <thead>
@@ -81,7 +81,7 @@ export default async function AdminValidationsPage() {
             </table>
           </section>
 
-          <section className="rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+          <section className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
             <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Ediciones por usuario</p>
             <table className="w-full text-left text-sm">
               <thead>
@@ -103,13 +103,13 @@ export default async function AdminValidationsPage() {
             </table>
           </section>
 
-          <section className="rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+          <section className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
             <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Tendencia — % con ediciones, últimos {TREND_DAYS} días</p>
             <div className="flex items-end gap-2">
               {trend.map((point) => (
                 <div key={point.date} className="flex flex-1 flex-col items-center gap-1">
                   <div
-                    className="w-full rounded-t bg-amber-500 dark:bg-amber-600"
+                    className="w-full rounded-t bg-caution-500 dark:bg-caution-600"
                     style={{ height: `${Math.max(4, (point.editedPercentage / 100) * 80)}px` }}
                     title={point.total > 0 ? `${point.editedPercentage.toFixed(0)}% (${point.total} validaciones)` : "sin validaciones"}
                   />

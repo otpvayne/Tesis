@@ -18,5 +18,6 @@ export default defineConfig({
       "tests/integration/**/*.test.ts",
     ],
     globals: false,
+    setupFiles: ["./tests/setup.ts"],
   },
 });
