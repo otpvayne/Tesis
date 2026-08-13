@@ -238,10 +238,29 @@ servidor de desarrollo o herramientas de navegador en esta sesión (sección 11)
 
 ## 13. Estado actual
 
-Fase activa: **Fase 7 — Testing completo (E2E + performance + seguridad)** (en cierre,
-esperando aprobación). Fases 0, 1, 2, 3, 4a-4f, 5 y 6 integradas a `main` (tag
-`v0.4.0-ocr` para el cierre de Fase 4). Ver `docs/roadmap.md` para el plan de fases
-siguientes y `docs/requirements/traceability.md` para el estado por requerimiento.
+Fase activa: **Fase 8 — Deploy final (integración, versionado y documentación)** (en
+cierre, esperando aprobación). Fases 0, 1, 2, 3, 4a-4f, 5, 6 y 7 integradas a `main`
+(tag `v0.4.0-ocr` para el cierre de Fase 4; `v0.5.0-complete` pendiente de crear al
+aprobar esta fase, junto con el merge — `CLAUDE.md` §3, tags solo al integrar). Ver
+`docs/roadmap.md` para el plan de fases siguientes y `docs/requirements/traceability.md`
+para el estado por requerimiento.
+
+**Fase 8 — correcciones aplicadas al enunciado original antes de escribir nada
+permanente:** el prompt traía cifras que ya se habían identificado como fabricadas en
+fases anteriores (2847ms de performance — el placeholder original de Fase 4f; 41%/88.2%
+de accuracy citados como si fueran del modelo activo, cuando el modelo realmente activo
+mide **16.1%** sobre su propio split sintético; "145 tests, 143 passed" cuando la suite
+real da **323/323, 0 fallos**) y afirmaba un deploy en Vercel ("Live en producción") sin
+que exista ninguna evidencia en el repo de que eso haya pasado (`vercel.json`/`.vercel/`
+no existen). Confirmado con el equipo antes de proceder: `README.md`/`CHANGELOG.md`
+usan solo los números reales, y `docs/DEPLOYMENT.md` son instrucciones para desplegar,
+no la descripción de un sistema ya en producción. Tampoco se referencian
+`docs/ocr/README.md`/`FLUJO_COMPLETO_USUARIO.md`/`TESTS_UNITARIOS.md` — ninguno existe
+en el repo, y el equipo decidió no crearlos en esta fase. El tag `v0.5.0-complete` se
+crea al recibir la aprobación de merge de esta fase (no antes, siguiendo el mismo gate
+de aprobación de todas las fases anteriores — este prompt no repetía la línea "no
+fusionar sin aprobación" de los anteriores, pero la regla de `CLAUDE.md` §3 es
+permanente y no depende de que cada prompt la repita).
 
 **Fase 7 chocó con `CLAUDE.md` §11 desde el primer momento**: el enunciado pedía correr
 Playwright contra el deploy de Vercel y reportar tests E2E/performance/seguridad

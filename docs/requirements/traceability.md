@@ -643,6 +643,34 @@ etc.).
 5. Correr `tests/MANUAL_CHECKLIST.md` en un navegador/celular real.
 6. Reportar los resultados reales -- **nunca asumir que "escrito" significa "pasó"**.
 
+## Entregables técnicos de Fase 8 (Deploy final)
+
+**Corrección del enunciado antes de escribir nada permanente:** traía cifras ya
+identificadas como fabricadas en fases anteriores (2847ms de performance, 41%/88.2% de
+accuracy atribuidos al modelo activo, "145 tests, 143 passed") y afirmaba un deploy en
+Vercel sin evidencia en el repo. Confirmado con el equipo: se usan solo números reales.
+
+| Entregable | Archivo(s) | Contenido |
+|---|---|---|
+| Sección "Estado final" en README | `README.md` | Status por componente + tabla de métricas reales (323/323 tests, 95.1% coverage, 4849.2ms, 100% reproducibilidad, 16.1% accuracy del modelo activo sobre su propio split sintético) |
+| `CHANGELOG.md` (nuevo, raíz) | `CHANGELOG.md` | Historial real de v0.4.0-ocr y v0.5.0-complete, con las mismas cifras reales |
+| `docs/DEPLOYMENT.md` (nuevo) | `docs/DEPLOYMENT.md` | Instrucciones para desplegar -- explícitamente **no** afirma que ya está desplegado |
+| `CLAUDE.md` §13 actualizado | `CLAUDE.md` | Estado de Fase 8 + registro de las correcciones aplicadas al enunciado |
+
+**Sobre el 16.1% vs. el 88.2% citado en el enunciado**: son dos corridas distintas y no
+comparables. 88.2% es la validación aritmética de Fase 4f (alfabeto sintético de 2
+formas, 17 muestras) -- nunca fue el modelo activo. 16.1% es el único número que
+corresponde al modelo que `ocr_models` tiene activo hoy (62 clases), medido sobre su
+propio split de entrenamiento/test sintético -- no sobre facturas reales de Mansor
+(esa partición sigue vacía). Ningún número de accuracy de este proyecto viene todavía
+de datos reales.
+
+**Tag `v0.5.0-complete` y merge a `main`**: pendientes de la aprobación explícita del
+equipo (`CLAUDE.md` §3) -- este prompt de Fase 8 no repetía la línea estándar "no
+fusionar sin aprobación" de los prompts anteriores, pero la regla es permanente y no
+depende de que cada prompt la repita. El tag se crea en el momento del merge, siguiendo
+el mismo procedimiento usado para `v0.4.0-ocr`.
+
 ## Sistema de diseño (`feature/design-system`)
 
 Trabajo puntual (`CLAUDE.md` §3, `feature/nombre`) fuera de la numeración de fases,
