@@ -117,25 +117,40 @@ Documentación técnica completa: [`docs/ocr/README.md`](docs/ocr/README.md).
 
 ## ⏳ Pendientes: Andres & Santiago (Fase 4 Follow-up)
 
-**Estado:** v0.4.0-ocr completada. Ahora es turno del equipo de desarrollo.
+**Estado (actualizado 2026-08-20):** el modelo activo sigue siendo 100% sintético
+(**16.1%** de accuracy, no el 88.2% que aparecía antes en esta sección — ese número era
+de una corrida aritmética de Fase 4f con un alfabeto de 2 formas, nunca fue el modelo
+activo, ver "🏆 Estado final — Fase 8" más abajo). Buena noticia: **el etiquetado ya
+arrancó** — hay 1,000 caracteres reales en `ocr_training_samples`. Lo que falta es
+repartirlos correctamente y reentrenar.
 
-### 1️⃣ Etiquetado de caracteres reales (CRÍTICO)
+### 1️⃣ Repartir el dataset ya etiquetado (CRÍTICO — bloquea la evaluación real)
 
-El modelo kNN actual es 100% sintético (88.2% accuracy). Para mejorar a 75-85% en facturas reales:
+Las 1,000 muestras etiquetadas hasta ahora quedaron **todas en la partición `train`** —
+cero en `validation`, cero en `test`. El selector de partición en `/ocr-lab/train`
+arranca en "train" por defecto; si se guarda sin cambiarlo, todo cae ahí. Sin nada en
+`test` no hay forma de medir una accuracy real sobre facturas de Mansor — es el mismo
+hueco que `docs/ocr/evaluation.md` §6 ya señalaba, y sigue abierto.
 
 **¿Qué hacer?**
-- Abrir [`/ocr-lab/train/`](src/app/(dashboard)/ocr-lab/train/page.tsx) en el deploy
-- Subir facturas reales de Mansor
-- Para cada carácter segmentado: seleccionar la letra/número correcto en dropdown
-- Guardar etiqueta
+- No hace falta re-etiquetar las 1,000 ya hechas — sirven tal cual en `train`.
+- Etiquetar el resto del dataset (o una porción nueva) eligiendo explícitamente
+  `validation`/`test` en el selector antes de guardar cada tanda.
+- Meta sugerida de reparto: **70% train / 15% validation / 15% test**, cubriendo las 62
+  clases (`0-9`, `A-Z`, `a-z`) y no solo las primeras que aparezcan al etiquetar.
 
-**Meta:** 100+ muestras por carácter (0-9, A-Z, a-z)
-- Total: ~1,000-2,000 caracteres
-- Tiempo estimado: 4-6 horas de trabajo
+### 2️⃣ Reentrenar y evaluar con datos reales (CUANDO HAYA `test` POBLADO)
 
-**Importancia:** Bloqueador crítico para accuracy en producción.
+**¿Qué hacer?**
+- En `/ocr-lab/train`, "Entrenar modelo" (kNN sobre `train`, evalúa contra `test`).
+- Correr **"Evaluar modelo activo sobre 'test'"** (ya construido desde Fase 4f) y anotar
+  la accuracy real en `docs/ocr/evaluation.md` — sea cual sea el número, se documenta
+  tal cual sale, nunca se infla ni se asume.
+- "Activar este modelo" es un paso manual aparte, a propósito — solo actívenlo si supera
+  al sintético actual (16.1%). Si el primer intento con datos reales no llega al 80% del
+  propio umbral del código, está bien: es la primera medición real, no un fracaso.
 
-### 2️⃣ Validación y corrección de campos (CONTINUO)
+### 3️⃣ Validación y corrección de campos (CONTINUO)
 
 **¿Qué hacer?**
 - Subir facturas en `/documents/new`
@@ -144,72 +159,55 @@ El modelo kNN actual es 100% sintético (88.2% accuracy). Para mejorar a 75-85% 
   Enter confirma
 - Click "Guardar validación" cuando termines de revisar los 6 campos, o "Rechazar
   documento" si la captura no sirve
-- **Nota:** esta UI está implementada en la rama `fase/5-validacion-humana`, todavía
-  sin aprobar/mergear a `main` — la interacción real (edición inline, colores de
-  confianza) no se probó en navegador en esta sesión (`CLAUDE.md` §11), es la primera
-  vez que ustedes la ven. Si algo no funciona como se espera, repórtenlo.
+- **Nota:** esta UI ya está integrada a `main` (Fase 5) — la interacción real (edición
+  inline, colores de confianza) sigue sin probarse a fondo en navegador por el equipo
+  (checklist manual pendiente, ver más abajo). Si algo no funciona como se espera,
+  repórtenlo.
 
 **Paralelo a etiquetado:** mientras etiquetan, van probando OCR y reportando fallos.
-
-### 3️⃣ Reentrenamiento del modelo (CUANDO TENGAN DATOS)
-
-**¿Qué hacer?**
-- En `/ocr-lab/train/` cuando hayan etiquetado 100+ muestras/clase
-- Click "Entrenar modelo (kNN sobre 'train', evalúa contra 'test')"
-- Revisar la accuracy reportada contra `test`
-- Click aparte en "Activar este modelo" para que `/documents/[id]` empiece a usarlo
-
-**No es automático:** entrenar crea un modelo nuevo pero **no** lo activa solo —
-activar es un paso manual separado, a propósito (evita reemplazar el modelo en
-producción sin confirmar).
-
-### Timeline realista
-
-| Día | Tarea | Progreso |
-|-----|-------|----------|
-| 1-2 | Etiquetado inicial (0-9, A-Z) | 500-800 caracteres |
-| 3-4 | Etiquetado minúsculas y confusos | 800+ caracteres más |
-| 5 | Cumplir meta 100+/clase en 6 clases | ~1,500 caracteres totales |
-| 6 | Primer reentrenamiento | Accuracy sube a ~75-78% |
-| 7+ | Iteración: validar, etiquetar, reentrenar | Convergencia a 80%+ |
 
 ### Estado actual
 
 | Tarea | Estado | Responsable |
 |-------|--------|-------------|
 | Fase 4 (OCR v0.4.0-ocr) | ✅ Completada | Claude Code |
-| **Etiquetado caracteres reales** | ⏳ **PENDIENTE** | **Andres & Santiago** |
-| **Reentrenamiento del modelo** | ⏳ **PENDIENTE** | **Andres & Santiago** |
-| Fase 5 (Validación humana / RF-007) | 🔧 En cierre, sin aprobar/mergear | Claude Code |
+| **Etiquetado caracteres reales** | 🟡 **En progreso** — 1,000 muestras, todas en `train`, 0 en `validation`/`test` | **Andres & Santiago** |
+| **Repartir dataset a validation/test** | ⏳ **PENDIENTE** — bloquea la evaluación real | **Andres & Santiago** |
+| **Reentrenamiento + evaluación del modelo** | ⏳ **PENDIENTE** — depende del punto anterior | **Andres & Santiago** |
+| Fase 5 (Validación humana / RF-007) | ✅ Integrada a `main` | Claude Code |
 | **Probar UI de validación en `/documents/[id]` (checklist manual)** | ⏳ **PENDIENTE** | **Andres & Santiago** |
-| Fase 6 (Admin) | ⏳ Por hacer | Claude Code |
-| Fase 7 (Testing) | ⏳ Por hacer | Claude Code |
-| Fase 8 (Deploy) | ⏳ Por hacer | Claude Code |
+| Fase 6 (Admin) | ✅ Integrada a `main` | Claude Code |
+| Fase 7 (Testing: regresión real + Playwright sin ejecutar) | ✅ Integrada a `main`, ⏳ ejecución E2E/checklist manual pendiente | Claude Code / Andres & Santiago |
+| Fase 8 (Deploy) | 🔧 En cierre, esperando aprobación para merge + tag `v0.5.0-complete` | Claude Code |
 
 ### Para Andres & Santiago
 
-**Step 1: Empezar a etiquetar**
+**Step 1: Completar el etiquetado (eligiendo partición)**
 ```
 1. Abre https://tesis-sigma-bay.vercel.app → /ocr-lab/train/
 2. Sube una factura de Mansor
 3. Para cada carácter: dropdown → selecciona letra correcta
-4. Click "Guardar etiquetas"
-5. Repite hasta tener 100+ caracteres/clase
+4. ANTES de guardar: revisa el selector de partición (train/validation/test) —
+   por defecto queda en "train"; hay que cambiarlo a mano para que algo caiga
+   en validation/test
+5. Click "Guardar etiquetas"
+6. Meta: ~70% train / 15% validation / 15% test, cubriendo las 62 clases
 ```
 
 **Step 2: Validar OCR**
 ```
 1. `/documents/new` → sube factura
 2. `/documents/[id]` → click "Procesar documento" → revisa campos extraídos
-3. Si está mal: anota la discrepancia (todavía no hay edición en UI, ver punto 2 arriba)
+3. Click "Editar" en el campo que esté mal, corrige, Enter confirma (ver punto 3️⃣ arriba)
+4. "Guardar validación" o "Rechazar documento" si la captura no sirve
 ```
 
-**Step 3: Reentrenar**
+**Step 3: Reentrenar y evaluar**
 ```
-1. `/ocr-lab/train/` (después de 100+ muestras/clase)
+1. `/ocr-lab/train/` (después de tener muestras reales en validation Y test)
 2. Click "Entrenar modelo"
-3. Revisar accuracy contra test
-4. Click "Activar este modelo" (paso manual aparte)
+3. Click "Evaluar modelo activo sobre 'test'" y anotar la accuracy real
+4. Click "Activar este modelo" (paso manual aparte) si mejora al 16.1% actual
 ```
 
 ### FAQ
@@ -221,7 +219,9 @@ R: ~5 segundos por carácter. 1,500 caracteres = 3-4 horas.
 R: Dataset pequeño, 1-2 errores no importan. Puedes re-etiquetar.
 
 **P: ¿Por qué falla el OCR?**
-R: v1 es sintético (88.2% accuracy, sin datos reales todavía). Es esperado. Ustedes lo van a mejorar.
+R: El modelo activo hoy es 100% sintético (16.1% accuracy, sin datos reales evaluados
+todavía). Es esperado. Ustedes lo van a mejorar repartiendo el dataset real y
+reentrenando (ver puntos 1️⃣ y 2️⃣ arriba).
 
 ### Documentación
 
@@ -232,7 +232,7 @@ R: v1 es sintético (88.2% accuracy, sin datos reales todavía). Es esperado. Us
 
 ## 🏆 Estado final — Fase 8
 
-**Fases 4-8 integradas a `main`.** Esto es un MVP funcional de punta a punta con datos
+**Fases 4-7 integradas a `main`; Fase 8 en cierre, esperando aprobación.** Esto es un MVP funcional de punta a punta con datos
 **sintéticos** — no un sistema terminado con accuracy usable sobre facturas reales de
 Mansor todavía. Ver `CLAUDE.md` §13 y `docs/requirements/traceability.md` para el
 detalle completo fase por fase; esta sección resume solo los números reales, medidos en
