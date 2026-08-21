@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/modules/audit/log";
+import { fetchAllRows } from "@/modules/ocr/classification/fetch-all-rows";
 import { KNNClassifier, type SerializedKNNClassifier } from "@/modules/ocr/classification/knn-classifier";
 import { computeCharacterMetrics, type CharacterMetrics } from "@/modules/ocr/evaluation/character-metrics";
 import {
@@ -45,31 +46,27 @@ async function requireAdmin() {
 }
 
 /**
- * Lee todas las muestras de `document_type` y agrega en memoria — el
- * dataset es pequeño en esta fase (sin datos reales todavía, Fase 4d lo
- * llena). Si el volumen crece lo suficiente para que esto importe, se
- * reemplaza por una agregación real en SQL (`group by`), no antes.
+ * Lee todas las muestras de `document_type` y agrega en memoria. Pagina
+ * con `fetchAllRows` (ver comentario ahí) -- si el volumen crece lo
+ * suficiente para que traer todas las filas a memoria en cada carga de
+ * `/ocr-lab/train` importe de verdad, se reemplaza por una agregación
+ * real en SQL (`group by`), no antes.
  */
 export async function getDatasetStats(): Promise<DatasetStats> {
   const { supabase } = await requireAdmin();
 
-  const { data, error } = await supabase
-    .from("ocr_training_samples")
-    .select("label, dataset_partition")
-    .eq("document_type", DOCUMENT_TYPE);
-
-  if (error) {
-    throw new Error(`No se pudo leer el dataset: ${error.message}`);
-  }
+  const data = await fetchAllRows((from, to) =>
+    supabase.from("ocr_training_samples").select("label, dataset_partition").eq("document_type", DOCUMENT_TYPE).range(from, to),
+  );
 
   const byLabel: Record<string, number> = {};
   const byPartition: Record<string, number> = {};
-  for (const row of data ?? []) {
+  for (const row of data) {
     byLabel[row.label] = (byLabel[row.label] ?? 0) + 1;
     byPartition[row.dataset_partition] = (byPartition[row.dataset_partition] ?? 0) + 1;
   }
 
-  return { total: data?.length ?? 0, byLabel, byPartition };
+  return { total: data.length, byLabel, byPartition };
 }
 
 export async function saveLabeledSamples(samples: LabeledSampleInput[]): Promise<SaveLabeledSamplesResult> {
@@ -118,16 +115,10 @@ export async function saveLabeledSamples(samples: LabeledSampleInput[]): Promise
 export async function trainAndEvaluateModel(): Promise<TrainAndEvaluateResult> {
   const { supabase } = await requireAdmin();
 
-  const { data, error } = await supabase
-    .from("ocr_training_samples")
-    .select("label, dataset_partition, feature_data")
-    .eq("document_type", DOCUMENT_TYPE);
+  const rows = await fetchAllRows((from, to) =>
+    supabase.from("ocr_training_samples").select("label, dataset_partition, feature_data").eq("document_type", DOCUMENT_TYPE).range(from, to),
+  );
 
-  if (error) {
-    throw new Error(`No se pudo leer el dataset: ${error.message}`);
-  }
-
-  const rows = data ?? [];
   const trainRows = rows.filter((row) => row.dataset_partition === "train");
   const testRows = rows.filter((row) => row.dataset_partition === "test");
 
@@ -389,16 +380,11 @@ export async function evaluateActiveModelOnTestPartition(): Promise<CharacterEva
     throw new Error(`No hay un modelo activo para document_type="${DOCUMENT_TYPE}" — activa uno primero.`);
   }
 
-  const { data: testRows, error: testError } = await supabase
-    .from("ocr_training_samples")
-    .select("label, feature_data")
-    .eq("document_type", DOCUMENT_TYPE)
-    .eq("dataset_partition", "test");
+  const testRows = await fetchAllRows((from, to) =>
+    supabase.from("ocr_training_samples").select("label, feature_data").eq("document_type", DOCUMENT_TYPE).eq("dataset_partition", "test").range(from, to),
+  );
 
-  if (testError) {
-    throw new Error(`No se pudo leer la partición test: ${testError.message}`);
-  }
-  if (!testRows || testRows.length === 0) {
+  if (testRows.length === 0) {
     throw new Error("La partición 'test' está vacía todavía — etiqueta y guarda caracteres con partición 'test' en OCR LAB antes de evaluar.");
   }
 
