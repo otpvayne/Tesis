@@ -117,29 +117,44 @@ Documentación técnica completa: [`docs/ocr/README.md`](docs/ocr/README.md).
 
 ## ⏳ Pendientes: Andres & Santiago (Fase 4 Follow-up)
 
-**Estado (actualizado 2026-08-20):** el modelo activo sigue siendo 100% sintético
-(**16.1%** de accuracy, no el 88.2% que aparecía antes en esta sección — ese número era
-de una corrida aritmética de Fase 4f con un alfabeto de 2 formas, nunca fue el modelo
-activo, ver "🏆 Estado final — Fase 8" más abajo). Buena noticia: **el etiquetado ya
-arrancó** — hay 1,000 caracteres reales en `ocr_training_samples`. Lo que falta es
-repartirlos correctamente y reentrenar.
+**Estado (actualizado 2026-08-25):** el modelo activo reportado como "16.1%" en esta
+sección sigue siendo el entrenado 100% con datos sintéticos (no el 88.2% que aparecía
+antes — ese número era de una corrida aritmética de Fase 4f con un alfabeto de 2 formas,
+nunca fue el modelo activo, ver "🏆 Estado final — Fase 8" más abajo) — **todavía nadie
+lo reentrenó ni evaluó contra datos reales.** Lo que sí cambió: el etiquetado avanzó
+muchísimo y **el bloqueo de `validation`/`test` vacíos ya se resolvió.**
 
-### 1️⃣ Repartir el dataset ya etiquetado (CRÍTICO — bloquea la evaluación real)
+**`ocr_training_samples` hoy: 10,434 muestras reales** — `train`: 5,565, `validation`:
+2,442, `test`: 2,427 (meta anterior de ~300 en cada una, superada por 8x). Foco actual
+del equipo: **ya no es etiquetar más para destrabar la evaluación — es correr el paso
+2️⃣ (reentrenar + evaluar) y anotar la accuracy real.**
 
-Las 1,000 muestras etiquetadas hasta ahora quedaron **todas en la partición `train`** —
-cero en `validation`, cero en `test`. El selector de partición en `/ocr-lab/train`
-arranca en "train" por defecto; si se guarda sin cambiarlo, todo cae ahí. Sin nada en
-`test` no hay forma de medir una accuracy real sobre facturas de Mansor — es el mismo
-hueco que `docs/ocr/evaluation.md` §6 ya señalaba, y sigue abierto.
+### 1️⃣ ~~Poblar `validation`/`test`~~ — RESUELTO (2026-08-25)
 
-**¿Qué hacer?**
-- No hace falta re-etiquetar las 1,000 ya hechas — sirven tal cual en `train`.
-- Etiquetar el resto del dataset (o una porción nueva) eligiendo explícitamente
-  `validation`/`test` en el selector antes de guardar cada tanda.
-- Meta sugerida de reparto: **70% train / 15% validation / 15% test**, cubriendo las 62
-  clases (`0-9`, `A-Z`, `a-z`) y no solo las primeras que aparezcan al etiquetar.
+Meta cumplida: `validation` (2,442) y `test` (2,427) ya tienen dataset real de sobra
+para evaluar. Sigue habiendo margen para mejorar cobertura por clase si alguien quiere
+seguir etiquetando (ver nota de clases raras abajo), pero **ya no bloquea nada.**
 
-### 2️⃣ Reentrenar y evaluar con datos reales (CUANDO HAYA `test` POBLADO)
+**24 de 62 clases siguen por debajo de la meta de 100 muestras/clase** (contando las tres
+particiones juntas) — todas letras poco frecuentes en facturas en español, esperado, no
+hace falta forzar etiquetado artificial para rellenarlas:
+```
+x:3  z:3  k:4  w:6  Z:10  j:12  K:14  Q:14  q:14  X:15  J:22  y:23
+W:26  g:32  v:32  h:34  H:39  u:42  Y:51  f:56  G:58  p:67  m:70  b:82
+```
+
+**Nota sobre el importador de PDF (`npm run import:pdf-samples`):** se construyó y probó
+como atajo para `train`, pero **sigue sin recomendarse usarlo** — contra las 55 facturas
+reales completas, hasta un tercio-mitad de las muestras salieron mal etiquetadas (el
+emparejamiento de líneas puede acertar con la línea vecina equivocada sin que el chequeo
+de conteo lo detecte). No se guardó nada de esa corrida. Detalle completo, causa raíz y
+pendiente de arreglo en
+`docs/decisions/0002-import-pdf-facturas-electronicas-dataset.md`. Las 140 muestras de un
+experimento anterior con PDF (antes de detectar el problema) siguen en `train` sin
+borrar, marcadas `source: "pdf_text_layer"` sin `matchConfidence` en `feature_data` —
+decisión explícita de dejarlas ahí por ahora.
+
+### 2️⃣ Reentrenar y evaluar con datos reales (CRÍTICO — foco actual, ya no bloqueado)
 
 **¿Qué hacer?**
 - En `/ocr-lab/train`, "Entrenar modelo" (kNN sobre `train`, evalúa contra `test`).
@@ -171,9 +186,9 @@ hueco que `docs/ocr/evaluation.md` §6 ya señalaba, y sigue abierto.
 | Tarea | Estado | Responsable |
 |-------|--------|-------------|
 | Fase 4 (OCR v0.4.0-ocr) | ✅ Completada | Claude Code |
-| **Etiquetado caracteres reales** | 🟡 **En progreso** — 1,000 muestras, todas en `train`, 0 en `validation`/`test` | **Andres & Santiago** |
-| **Repartir dataset a validation/test** | ⏳ **PENDIENTE** — bloquea la evaluación real | **Andres & Santiago** |
-| **Reentrenamiento + evaluación del modelo** | ⏳ **PENDIENTE** — depende del punto anterior | **Andres & Santiago** |
+| **Etiquetado caracteres reales** | 🟢 **10,434 muestras** — `train` 5,565 / `validation` 2,442 / `test` 2,427 | **Andres & Santiago** |
+| **Poblar validation/test** | ✅ **RESUELTO** (2026-08-25) — meta de ~300 c/u superada por 8x | **Andres & Santiago** |
+| **Reentrenamiento + evaluación del modelo** | ⏳ **PENDIENTE** — foco actual, ya no bloqueado | **Andres & Santiago** |
 | Fase 5 (Validación humana / RF-007) | ✅ Integrada a `main` | Claude Code |
 | **Probar UI de validación en `/documents/[id]` (checklist manual)** | ⏳ **PENDIENTE** | **Andres & Santiago** |
 | Fase 6 (Admin) | ✅ Integrada a `main` | Claude Code |
@@ -182,17 +197,11 @@ hueco que `docs/ocr/evaluation.md` §6 ya señalaba, y sigue abierto.
 
 ### Para Andres & Santiago
 
-**Step 1: Completar el etiquetado (eligiendo partición)**
-```
-1. Abre https://tesis-sigma-bay.vercel.app → /ocr-lab/train/
-2. Sube una factura de Mansor
-3. Para cada carácter: dropdown → selecciona letra correcta
-4. ANTES de guardar: revisa el selector de partición (train/validation/test) —
-   por defecto queda en "train"; hay que cambiarlo a mano para que algo caiga
-   en validation/test
-5. Click "Guardar etiquetas"
-6. Meta: ~70% train / 15% validation / 15% test, cubriendo las 62 clases
-```
+**Step 1: ~~Poblar validation/test~~ — YA HECHO** (`validation` 2,442 / `test` 2,427,
+2026-08-25). Si quieren seguir etiquetando para subir cobertura de las 24 clases raras
+que siguen bajo 100 muestras (ver lista arriba), el flujo es el mismo de siempre en
+`/ocr-lab/train/` eligiendo la partición antes de guardar — pero no es requisito para
+avanzar al Step 3.
 
 **Step 2: Validar OCR**
 ```
@@ -202,9 +211,9 @@ hueco que `docs/ocr/evaluation.md` §6 ya señalaba, y sigue abierto.
 4. "Guardar validación" o "Rechazar documento" si la captura no sirve
 ```
 
-**Step 3: Reentrenar y evaluar**
+**Step 3: Reentrenar y evaluar (foco actual — ya no bloqueado)**
 ```
-1. `/ocr-lab/train/` (después de tener muestras reales en validation Y test)
+1. `/ocr-lab/train/` (validation y test ya tienen muestras reales de sobra)
 2. Click "Entrenar modelo"
 3. Click "Evaluar modelo activo sobre 'test'" y anotar la accuracy real
 4. Click "Activar este modelo" (paso manual aparte) si mejora al 16.1% actual
@@ -212,11 +221,8 @@ hueco que `docs/ocr/evaluation.md` §6 ya señalaba, y sigue abierto.
 
 ### FAQ
 
-**P: ¿Cuánto tiempo toma?**
-R: ~5 segundos por carácter. 1,500 caracteres = 3-4 horas.
-
 **P: ¿Qué pasa si me equivoco?**
-R: Dataset pequeño, 1-2 errores no importan. Puedes re-etiquetar.
+R: Dataset grande, 1-2 errores no importan. Puedes re-etiquetar.
 
 **P: ¿Por qué falla el OCR?**
 R: El modelo activo hoy es 100% sintético (16.1% accuracy, sin datos reales evaluados
@@ -257,14 +263,17 @@ esta sesión (nunca estimados).
 | Performance OCR | 4849.2 ms, factura sintética representativa (~1184 caracteres), Fase 4e | <5000 ms (RNF-001) | ⚠️ dentro del límite, margen mínimo |
 | Reproducibilidad | 100% (varianza 0 exacta, 5 corridas) | 100% | ✅ |
 | Campos extraídos (RF-003) | 6/6 (Proveedor, NIT, Fecha, IVA, Valor, Total) | 6 | ✅ |
-| **Accuracy del modelo activo** | **16.1%** — 62 clases, medido sobre su propio split de test **sintético** (no facturas reales de Mansor: esa partición sigue vacía, ver `CLAUDE.md` §13) | — | ⚠️ muy bajo, esperado para v1 sintético |
+| **Accuracy del modelo activo** | **16.1%** — 62 clases, medido sobre su propio split de test **sintético**, modelo nunca reentrenado con datos reales todavía (ver nota abajo) | — | ⚠️ muy bajo, esperado para v1 sintético |
 
 **Sobre el 16.1%:** es el único número de accuracy que corresponde al modelo
 *realmente activo* hoy (`ocr_models`, generado en Fase 5 vía `npm run generate:model`).
 Una corrida distinta y no comparable, de Fase 4f, midió 88.2% sobre un alfabeto
 sintético de solo 2 formas (17 muestras) para validar que la aritmética de evaluación
 era correcta — nunca fue el modelo activo ni una cifra representativa. Ningún número de
-accuracy en este proyecto viene todavía de una factura real de Mansor.
+accuracy en este proyecto viene todavía de una factura real de Mansor — **actualización
+2026-08-25:** esto ya no es por falta de dataset (`ocr_training_samples.dataset_partition
+= 'test'` tiene 2,427 muestras reales, ver "⏳ Pendientes" arriba), es que el equipo
+todavía no corrió el reentrenamiento + evaluación contra ese `test` real.
 
 ### Versión
 
