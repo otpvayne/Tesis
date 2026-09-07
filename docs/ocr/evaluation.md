@@ -80,14 +80,31 @@ formas distintas** (`{descriptors, labels}` armado a mano vs. `KNNClassifier.toJ
 `{samples: [...]}`). Se unificaron ambas a `KNNClassifier.toJSON()`, la única forma que
 `evaluateActiveModelOnTestPartition` sabe leer.
 
-## 6. Estado actual — sin datos reales todavía
+## 6. Estado actual
 
-**Contra la partición `test` real (`ocr_training_samples`): sin mediciones.** Nadie ha
-etiquetado facturas reales de Mansor en OCR LAB todavía (ver `CLAUDE.md` §13) —
-`evaluateActiveModelOnTestPartition` lanzaría su error explícito de "partición vacía"
-si se corriera hoy. Esta sección se completa con cifras reales cuando exista ese
-dataset, con fecha, versión de modelo (`ocr_models.version`) y tamaño de `test`, tal
-como exige el principio rector (§1).
+**Primera medición real contra `test` (2026-09-07):** `trainAndEvaluateModel` sobre
+10,662 muestras de `train` (todas reales, etiquetadas en OCR LAB por Andrés y
+Santiago), evaluado contra 2,427 muestras reales de `test` de facturas de Mansor:
+
+```
+Character accuracy: 67.4% (character-metrics.ts, sobre descriptores HOG
+                    ya extraídos de ocr_training_samples.feature_data,
+                    no ImageData reconstruida — ver nota de §5 sobre por
+                    qué la evaluación real trabaja con descriptores)
+Clases evaluadas:   62
+Modelo:             reentrenado y activado el 2026-09-07 (ocr_models,
+                    reemplaza al sintético de Fase 5, 16.1%)
+```
+
+Esto es **character accuracy únicamente** — el % de campos completos correctos
+(field accuracy, RF-003, los objetivos progresivos de §4) todavía no se ha medido
+contra facturas reales validadas en `/documents/[id]`; no asumir que 67.4% de
+caracteres se traduce en 67.4% de campos (un solo carácter mal en un NIT ya invalida
+el campo). Pendiente: correr esa medición aparte y completar esta sección con field
+accuracy real, matriz de confusión (vía "Evaluar modelo activo sobre 'test'" en
+`/ocr-lab/train`) y accuracy por clase — las clases poco frecuentes en facturas en
+español (`K`, `Q`, `X`, `Z`, `q`, `w`, `x`, `z`, etc., ver `README.md` "⏳ Pendientes")
+siguen con pocas muestras y probablemente concentran buena parte del 32.6% de error.
 
 **Corrida de validación con datos sintéticos (Fase 4f, esta sesión)** — no representa
 precisión sobre facturas reales, solo confirma que la aritmética de las 4 herramientas
