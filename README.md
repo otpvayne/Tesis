@@ -115,6 +115,17 @@ etiquetados en Fase 5+ (ver sección siguiente).
 
 Documentación técnica completa: [`docs/ocr/README.md`](docs/ocr/README.md).
 
+### Motor alternativo: Tesseract.js (excepción aprobada 2026-09-08)
+
+Mientras el pipeline propio mejora su accuracy real sobre facturas reales, el equipo
+(con aprobación explícita de Diego) agregó **Tesseract.js** como motor de
+reconocimiento alternativo/de contingencia, aislado en
+`src/modules/ocr/engines/tesseract-engine.ts` y activable con la variable de entorno
+`NEXT_PUBLIC_OCR_ENGINE=tesseract` (por defecto sigue siendo `custom`, el pipeline
+propio, sin cambiar nada). El pipeline propio (HOG+kNN desde cero) no se modificó ni se
+eliminó — sigue siendo el aporte académico medido de esta tesis. Detalle completo de la
+excepción, su alcance y el riesgo documentado para la sustentación: `CLAUDE.md` §7.
+
 ## ⏳ Pendientes: Andres & Santiago (Fase 4 Follow-up)
 
 **Estado (actualizado 2026-08-20):** el modelo activo sigue siendo 100% sintético

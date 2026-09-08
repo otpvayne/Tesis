@@ -3,12 +3,27 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { runOCRPipeline } from "@/modules/ocr/pipeline/ocr-pipeline";
+import { runTesseractOCR } from "@/modules/ocr/engines/tesseract-engine";
 import { extractFields } from "@/modules/ocr/classification/field-extraction";
 import { CharacterClassifier } from "@/modules/ocr/classification/character-classifier";
 import { saveOcrResult, markOcrFailed, markOcrStarted } from "@/modules/documents/document-processing";
 import { WarningIcon } from "@/components/icons/WarningIcon";
 
 const PROCESSING_WARNING_THRESHOLD_MS = 5000; // RNF-001
+
+/**
+ * ⚠️ EXCEPCIÓN A `CLAUDE.md` §7 — ver ADR-0002
+ * (`docs/decisions/0002-uso-libreria-ocr-preentrenada.md`) y la nota fechada
+ * 2026-09-08 en `CLAUDE.md` §7 para el alcance exacto.
+ *
+ * Motor de reconocimiento a usar. `"custom"` (default, sin configurar nada)
+ * mantiene el comportamiento exacto de siempre: pipeline propio HOG+kNN +
+ * modelo activo de `ocr_models`. `"tesseract"` usa Tesseract.js
+ * (`modules/ocr/engines/tesseract-engine.ts`) como motor alternativo. No
+ * cambia nada para nadie que no configure la variable de entorno
+ * explícitamente.
+ */
+const OCR_ENGINE: "custom" | "tesseract" = process.env.NEXT_PUBLIC_OCR_ENGINE === "tesseract" ? "tesseract" : "custom";
 
 interface ActiveModelResponse {
   modelId: string;
@@ -39,22 +54,33 @@ export function ProcessDocumentClient({ documentId, signedUrl, documentType }: {
       try {
         await markOcrStarted(documentId);
 
-        const modelResponse = await fetch(`/api/ocr/active-model?documentType=${encodeURIComponent(documentType)}`);
-        if (!modelResponse.ok) {
-          const body = await modelResponse.json().catch(() => ({}));
-          throw new Error(body.error ?? `No se pudo obtener el modelo activo (${modelResponse.status}).`);
-        }
-        const { modelId, modelData } = (await modelResponse.json()) as ActiveModelResponse;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const classifier = CharacterClassifier.fromJSON(modelData as any);
-
         const imageResponse = await fetch(signedUrl);
         if (!imageResponse.ok) {
           throw new Error("No se pudo descargar la imagen del documento.");
         }
         const blob = await imageResponse.blob();
 
-        const ocrResult = await runOCRPipeline(blob, classifier);
+        let modelId: string | null;
+        let ocrResult;
+
+        if (OCR_ENGINE === "tesseract") {
+          // Motor alternativo (excepción aprobada, ver CLAUDE.md §7): no
+          // depende de ningún modelo entrenado propio, así que no se llama
+          // a `/api/ocr/active-model`.
+          modelId = null;
+          ocrResult = await runTesseractOCR(blob);
+        } else {
+          const modelResponse = await fetch(`/api/ocr/active-model?documentType=${encodeURIComponent(documentType)}`);
+          if (!modelResponse.ok) {
+            const body = await modelResponse.json().catch(() => ({}));
+            throw new Error(body.error ?? `No se pudo obtener el modelo activo (${modelResponse.status}).`);
+          }
+          const activeModel = (await modelResponse.json()) as ActiveModelResponse;
+          modelId = activeModel.modelId;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const classifier = CharacterClassifier.fromJSON(activeModel.modelData as any);
+          ocrResult = await runOCRPipeline(blob, classifier);
+        }
 
         const extractionStart = performance.now();
         const fields = extractFields(ocrResult);
