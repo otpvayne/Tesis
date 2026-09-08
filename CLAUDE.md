@@ -143,10 +143,13 @@ en nombres de archivo del cliente, sin secretos en Git. Storage: bucket privado,
 
 ## 7. Dependencias de OCR / Visión por Computador
 
-**Regla actualizada (2026-08-19, ver `docs/decisions/0002-uso-libreria-ocr-preentrenada.md`):**
-se permite el uso de librerías OCR pre-entrenadas (Tesseract.js u otras) como parte
-del pipeline de reconocimiento, aprobado formalmente por el asesor de tesis / jurado
-de sustentación, por razones de precisión y tiempo de entrega.
+**Regla actualizada (2026-09-08, ver `docs/decisions/0002-uso-libreria-ocr-preentrenada.md`
+para la fecha real y el detalle de la aprobación — una versión anterior de este archivo
+indicaba por error 2026-08-19):** se permite el uso de librerías OCR pre-entrenadas
+(Tesseract.js u otras) como parte del pipeline de reconocimiento. Decisión del equipo,
+con aprobación **verbal** de la asesora de tesis (Olga Lucia Roa Bohorquez), sin
+registro escrito de ella en este proceso — ver ADR-0002, sección "Aprobado por", por
+razones de precisión y tiempo de entrega.
 
 El motor OCR propio desarrollado en la Fase 4 (preprocesamiento, segmentación,
 HOG+kNN, síntesis de datos) se conserva en el repositorio y NO debe eliminarse: es
