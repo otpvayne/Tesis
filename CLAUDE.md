@@ -141,34 +141,46 @@ nunca se expone al navegador. HTTPS, validar MIME type y tamaño de archivo, no 
 en nombres de archivo del cliente, sin secretos en Git. Storage: bucket privado, ruta
 `{user_id}/{document_id}/original.{extension}`, URLs firmadas para visualización.
 
-## 7. Regla absoluta del OCR
+## 7. Dependencias de OCR / Visión por Computador
 
-**El motor OCR se desarrolla desde cero por el equipo.** Prohibido: Tesseract /
-Tesseract.js, OpenCV / OpenCV.js, EasyOCR, PaddleOCR, Google Vision, Google Document AI,
-AWS Textract, Azure Computer Vision, OCR.space, ABBYY, TensorFlow / TensorFlow.js,
+**Regla actualizada (2026-08-19, ver `docs/decisions/0002-uso-libreria-ocr-preentrenada.md`):**
+se permite el uso de librerías OCR pre-entrenadas (Tesseract.js u otras) como parte
+del pipeline de reconocimiento, aprobado formalmente por el asesor de tesis / jurado
+de sustentación, por razones de precisión y tiempo de entrega.
+
+El motor OCR propio desarrollado en la Fase 4 (preprocesamiento, segmentación,
+HOG+kNN, síntesis de datos) se conserva en el repositorio y NO debe eliminarse: es
+evidencia de trabajo académico real y debe seguir siendo referenciable, aunque ya no
+sea necesariamente el único camino de producción. Debe seguir compilando y sus tests
+deben seguir pasando aunque deje de ser el camino usado en producción.
+
+**Pendiente:** el alcance exacto de la integración (si Tesseract.js reemplaza
+completamente el pipeline de clasificación propio, o si se integra de forma híbrida
+conservando etapas del motor propio) lo define el equipo de implementación
+(Andres/Santiago) — ver ADR-0002. Una vez decidido, se actualiza esta sección con el
+alcance final y se propaga al Manual Técnico y al README.
+
+Mientras el alcance no esté definido, siguen vigentes del motor propio: Clasificador
+**HOG propio** + **kNN propio**, documentados con fórmulas en `docs/ocr/algorithms.md`.
+Perfiles OCR (`OCRDocumentProfile`) — por ahora solo `invoice_es`, primer modelo
+`invoice_es_v1`. Tipos futuros: solo identificadores temporales
+`future_document_type_2/3/4`, sin inventar campos ni reglas. Dataset y entrenamiento
+vía herramienta propia **OCR LAB** (solo admin). Split train/validation/test estricto
+— `test` nunca se usa para entrenar; resultados reportados solo de `test`. Caracteres
+iniciales: `0-9 A-Z a-z`; acentos y signos se evalúan después, sin ampliar el alfabeto
+sin medir necesidad. Confidence score siempre calculado desde información real del
+pipeline (nunca aleatorio), fórmula documentada. Procesamiento intensivo en **Web
+Worker**, con estados de progreso reales (nunca progreso falso basado en timers).
+
+**Regla original (histórica, para contexto):** antes de 2026-08-19, el proyecto
+prohibía explícitamente cualquier dependencia de OCR/CV de terceros (Tesseract /
+Tesseract.js, OpenCV / OpenCV.js, EasyOCR, PaddleOCR, Google Vision, Google Document
+AI, AWS Textract, Azure Computer Vision, OCR.space, ABBYY, TensorFlow / TensorFlow.js,
 PyTorch, ONNX Runtime, ML Kit, transformers OCR, modelos preentrenados, APIs/servicios
-OCR de terceros, librerías que hagan segmentación o reconocimiento automático, librerías
-de computer vision que resuelvan el pipeline por nosotros, modelos descargados de
-terceros.
-
-Permitido: TypeScript/JavaScript estándar, Canvas API, ImageData, `createImageBitmap`,
-FileReader, Web Workers, TypedArray, `Math`, APIs estándar del navegador, librerías
-generales que NO implementen procesamiento OCR (utilidades genéricas, testing, etc.).
-Cualquier algoritmo conocido (Otsu, HOG, kNN, morfología, componentes conectados, etc.)
-se implementa por el equipo desde su definición matemática — nunca importando la
-implementación de un tercero.
-
-Clasificador: **HOG propio** + **kNN propio**, documentados con fórmulas en
-`docs/ocr/algorithms.md`. Perfiles OCR (`OCRDocumentProfile`) — por ahora solo
-`invoice_es`, primer modelo `invoice_es_v1`. Tipos futuros: solo identificadores
-temporales `future_document_type_2/3/4`, sin inventar campos ni reglas. Dataset y
-entrenamiento vía herramienta propia **OCR LAB** (solo admin). Split
-train/validation/test estricto — `test` nunca se usa para entrenar; resultados
-reportados solo de `test`. Caracteres iniciales: `0-9 A-Z a-z`; acentos y signos se
-evalúan después, sin ampliar el alfabeto sin medir necesidad. Confidence score siempre
-calculado desde información real del pipeline (nunca aleatorio), fórmula documentada.
-Procesamiento intensivo en **Web Worker**, con estados de progreso reales (nunca
-progreso falso basado en timers).
+OCR de terceros, librerías que hagan segmentación o reconocimiento automático, modelos
+descargados de terceros), como restricción académica para demostrar comprensión de
+los algoritmos desde los fundamentos. Esa restricción se flexibilizó por la decisión
+documentada en `docs/decisions/0002-uso-libreria-ocr-preentrenada.md`.
 
 ## 8. Requerimientos
 
@@ -232,9 +244,9 @@ ajenos, `git reset --hard` sobre trabajo no confirmado, `git clean -fd` sin
 autorización, borrar archivos no reconocidos, subir secretos/datos privados/facturas
 reales de Mansor, merge a `main` sin aprobación, commits vacíos, modificar autoría de
 commits existentes, PDF en v1, PWA/offline en v1, integración contable real o simulada
-como real, cualquier dependencia OCR/CV/ML de terceros listada en la sección 7,
-expandir el alcance de RF-003/RF-006/perfiles OCR sin autorización explícita, ejecutar
-servidor de desarrollo o herramientas de navegador en esta sesión (sección 11).
+como real, eliminar o dejar de mantener el motor OCR propio (sección 7), expandir el
+alcance de RF-003/RF-006/perfiles OCR sin autorización explícita, ejecutar servidor de
+desarrollo o herramientas de navegador en esta sesión (sección 11).
 
 ## 13. Estado actual
 
