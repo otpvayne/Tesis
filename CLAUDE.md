@@ -185,6 +185,41 @@ descargados de terceros), como restricción académica para demostrar comprensi�
 los algoritmos desde los fundamentos. Esa restricción se flexibilizó por la decisión
 documentada en `docs/decisions/0002-uso-libreria-ocr-preentrenada.md`.
 
+**Alcance de la integración, resolviendo el "Pendiente" de la nota anterior (2026-09-08,
+aprobado explícitamente por Diego Alejandro Medina Martinez, comunicado por Andrés
+Felipe Moreno Beltrán):** el equipo de implementación (Andres/Santiago) definió que la
+integración es **híbrida, no un reemplazo completo** del pipeline propio. El equipo
+concluyó que el
+pipeline propio, aunque funcional de extremo a extremo, todavía no reconoce caracteres
+con suficiente precisión (67.4% character accuracy en test real al cierre de Fase 4f,
+ver `docs/ocr/evaluation.md`) para producir campos confiables a corto plazo, y necesita
+una demo funcional. Se autoriza agregar **Tesseract.js** como motor de reconocimiento
+**adicional**, no como reemplazo:
+
+- La regla de "desarrollado desde cero" de esta sección **no se elimina** — sigue
+  aplicando al pipeline propio (`modules/ocr/pipeline/`, `modules/ocr/classification/`,
+  `modules/ocr/segmentation/`, `modules/ocr/preprocessing/`), que sigue siendo el aporte
+  académico medido de la tesis y se sigue desarrollando/mejorando en paralelo.
+- Tesseract.js vive aislado en un único módulo nuevo,
+  `src/modules/ocr/engines/tesseract-engine.ts`, seleccionable en tiempo de ejecución
+  vía la variable de entorno `NEXT_PUBLIC_OCR_ENGINE` (`"custom"` por defecto — sin
+  configurar nada, el comportamiento no cambia; `"tesseract"` activa el motor
+  alternativo). Ningún otro módulo del pipeline propio fue modificado ni eliminado.
+  Ver `src/app/(dashboard)/documents/[id]/process-document-client.tsx`.
+- Esta excepción cubre únicamente **Tesseract.js**, para el caso de uso puntual de
+  reconocimiento de caracteres en producción como plan de contingencia. No autoriza
+  ninguna otra librería/API de la lista de prohibidas de esta sección (OpenCV, APIs de
+  nube, modelos preentrenados de terceros, etc.) — cualquiera de esas seguiría
+  requiriendo el mismo proceso: reportar REQUERIMIENTO AFECTADO / PROBLEMA / CAUSA /
+  IMPACTO / PROPUESTA DE CAMBIO / TRAZABILIDAD AFECTADA (§3) y esperar autorización
+  explícita antes de implementar.
+- Riesgo documentado para el equipo: si la evaluación académica de la tesis pondera el
+  pipeline OCR construido desde cero como criterio central (ver enunciado original del
+  proyecto), usar Tesseract.js como motor de reconocimiento en la app en producción
+  debe declararse honestamente en la documentación final (`README.md`,
+  `docs/ocr/evaluation.md`, sustentación) como lo que es — un motor de terceros usado
+  como plan de contingencia — nunca presentado como parte del pipeline propio.
+
 ## 8. Requerimientos
 
 **Funcionales:** RF-001 Captura · RF-002 OCR propio · RF-003 Extracción de campos
