@@ -1,8 +1,11 @@
 # ADR-0002: Uso de librería OCR pre-entrenada (Tesseract.js)
 
 - **Estado:** Aceptado
-- **Fecha:** 2026-08-19
-- **Decide:** Asesor de tesis (jurado de sustentación), equipo del proyecto
+- **Fecha:** 2026-09-08 (fecha real de redacción de este ADR; una versión anterior de
+  este documento indicaba por error 2026-08-19)
+- **Decide:** Equipo del proyecto (Diego Alejandro Medina Martinez, Andres Felipe
+  Moreno Beltrán, Santiago Moralez Orozco), con aprobación verbal de la asesora de
+  tesis — ver nota de verificación en "Aprobado por"
 
 ## Contexto
 
@@ -47,6 +50,8 @@ defina la arquitectura final.
 
 ## Aprobado por
 
-- Asesor de tesis / jurado de sustentación: [nombre pendiente de confirmar]
+- Asesora de tesis: Olga Lucia Roa Bohorquez — aprobación **verbal**, comunicada por
+  el equipo (Diego → Andrés). No hay registro escrito de la asesora en este proceso;
+  se documenta como verbal para no sobre-representar el nivel de confirmación real.
 - Equipo: Diego Alejandro Medina Martinez, Andres Felipe Moreno Beltrán,
   Santiago Moralez Orozco
