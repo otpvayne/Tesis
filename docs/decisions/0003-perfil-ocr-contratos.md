@@ -100,6 +100,43 @@ No existe todavía ningún dataset de contratos reales etiquetados.
   por el equipo queda para cuando haya campos concretos definidos (mismo criterio de
   `CLAUDE.md` §7: nada de inventar campos para tipos sin definir).
 
+## Pendientes (sin resolver en esta sesión, para retomar)
+
+- **Verificación manual en navegador real** (`CLAUDE.md` §11, no se pudo hacer en esta
+  sesión): flujo completo de `/contracts/new` (cámara + fallback de archivo), "Procesar
+  documento" con Tesseract.js real (worker/WASM), y revisar los campos extraídos de un
+  contrato en `/documents/[id]` (`ValidationSection`/`ValidationSummary`).
+- **Probar `extractContractFields` contra contratos reales de Mansor** — las
+  keywords/patrones (`identificacion`, `vigencia`, `tipoContrato`, `numeroContrato`) son
+  un punto de partida razonable, no medido; ajustar según lo que aparezca en contratos
+  reales, mismo proceso que se siguió con las facturas en Fase 4e.
+- **Resolver la autenticación de git en esta máquina** para poder hacer `git push` —
+  falló por "Password authentication is not supported" tanto en esta rama como en
+  `feature/ocr-dataset-plan` (trabajo de importación de PDFs, independiente de esto).
+- **`feature/ocr-dataset-plan` sigue sin pushear** — no relacionado con contratos, pero
+  quedó pendiente de la misma sesión.
+- **Colisión de numeración de ADR-0002** entre ramas (`0002-uso-libreria-ocr-preentrenada.md`
+  en `main` vs. `0002-import-pdf-facturas-electronicas-dataset.md` en
+  `feature/ocr-dataset-plan`) — resolver al converger ambas ramas.
+- **Confirmar formalmente con el equipo (Diego/Andrés)** la decisión de saltar el gate
+  de accuracy/Fase 8 de `docs/roadmap.md` — quedó autorizada por Santiago en esta
+  sesión, sin registro explícito de los otros dos todavía.
+- **`README.md` tiene deuda previa a este cambio, no resuelta aquí**: la sección "OCR
+  Pipeline" todavía dice "sin Tesseract... de terceros" (ya no es cierto desde el merge
+  de ADR-0002 a `main`) y cita 88.2%/16.1% de accuracy cuando esta sesión midió 73.8%
+  real sobre `test`. No se tocó a fondo por no ser parte del alcance de este cambio —
+  pendiente de una pasada de reconciliación completa.
+- **"Otros documentos"** mencionados por el equipo junto con contratos siguen sin campos
+  definidos — no se inventan (`CLAUDE.md` §7); pendiente de que el equipo los especifique
+  antes de implementar un tercer perfil.
+- **Decisión de fondo pendiente**: si a futuro se entrena un modelo propio (HOG+kNN)
+  para `contract_es`, o si Tesseract.js se queda como solución permanente para este
+  perfil — impacta cómo se presenta esto en la sustentación (ver "Consecuencias" abajo).
+- **Merge a `main`**: sigue pendiente de la aprobación explícita de `CLAUDE.md` §3
+  (`"APROBAR FASE X. INTEGRAR A MAIN..."`) — no se hace antes de esa autorización.
+- Revisar visualmente los nuevos links de nav ("Contratos"/"Nuevo contrato") en mobile
+  y desktop — no verificable sin navegador en esta sesión.
+
 ## Consecuencias
 
 - RF-003 ahora cubre dos perfiles con campos propios cada uno; la matriz de
