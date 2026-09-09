@@ -23,6 +23,17 @@ integrar a `main`.
 | 8 | `fase/8-deployment` | Despliegue en Vercel, variables de entorno de producción, verificación de RNF-005 | Fase 7 |
 | 9 | `fase/9-documentacion` | Documentación final para sustentación, cierre de trazabilidad, ADRs finales | Fase 8 |
 
+## Perfil OCR de contratos (`contract_es`) -- fuera de secuencia, autorizado explícitamente
+
+Agregado en `feature/ocr-contract-profile` (2026-09-08), sin fase propia asignada en la
+tabla de arriba -- el equipo pidió avanzarlo directamente durante el cierre de Fase 8,
+saltándose la condición que este roadmap tenía pendiente (nuevos perfiles solo después
+de superar el accuracy de `invoice_es` y cerrar Fase 8). Detalle completo, incluida la
+verificación real de accuracy (73.8% medido en esta sesión sobre la partición `test`,
+2427 caracteres -- no el 80%/16,500 caracteres reportado inicialmente por el equipo,
+que probablemente contaba train+validation+test) en
+`docs/decisions/0003-perfil-ocr-contratos.md`.
+
 ## Notas
 
 - RF-006 (integración contable) permanece `DEFERRED` en todo el roadmap salvo

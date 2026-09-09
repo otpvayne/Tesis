@@ -100,7 +100,12 @@ Tesseract/OpenCV/ML de terceros — `CLAUDE.md` §7): preprocesamiento (4a) →
 segmentación (4b) → HOG + kNN propios (4c) → entrenamiento sintético (4d) →
 reconstrucción de texto + extracción de campos (4e) → evaluación (4f).
 
-**Campos extraídos (RF-003):** Proveedor, NIT, Fecha, IVA, Valor, Total.
+**Campos extraídos (RF-003), perfil `invoice_es`:** Proveedor, NIT, Fecha, IVA, Valor, Total.
+
+**Segundo perfil, `contract_es`** (ADR-0003, `docs/decisions/0003-perfil-ocr-contratos.md`,
+sección "Contratos" separada en la app): Proveedor, NIT/documento, Fecha, Valor total,
+Vigencia, Tipo de contrato, Número de contrato — usa Tesseract.js siempre, no el
+pipeline propio (sin dataset de contratos reales para entrenar o evaluar todavía).
 
 | Métrica | Valor medido | Contexto |
 |---|---|---|

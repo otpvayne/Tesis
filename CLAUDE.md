@@ -220,13 +220,26 @@ una demo funcional. Se autoriza agregar **Tesseract.js** como motor de reconocim
   `docs/ocr/evaluation.md`, sustentación) como lo que es — un motor de terceros usado
   como plan de contingencia — nunca presentado como parte del pipeline propio.
 
+**Segundo perfil OCR agregado (2026-09-08, ver ADR-0003
+`docs/decisions/0003-perfil-ocr-contratos.md`):** `contract_es` (contratos), con campos
+propios (Proveedor, NIT/documento, Fecha, Valor total, Vigencia, Tipo de contrato,
+Número de contrato) — usa **siempre Tesseract.js**, nunca el pipeline propio HOG+kNN
+(no existe modelo propio entrenado para contratos y no se entrena uno en este cambio).
+Esto se saltó explícitamente la condición de `docs/roadmap.md` que bloqueaba nuevos
+perfiles hasta cerrar Fase 8 — autorizado por el equipo, con el gate de accuracy de
+`invoice_es` verificado de forma real en la misma sesión (73.8% sobre la partición
+`test`, no el 80% reportado inicialmente — ver el ADR para el detalle). `invoice_es`
+sigue siendo el único perfil con modelo propio entrenable vía OCR LAB.
+
 ## 8. Requerimientos
 
-**Funcionales:** RF-001 Captura · RF-002 OCR propio · RF-003 Extracción de campos
-(obligatorio: **Proveedor, NIT, Fecha, IVA, Valor, Total** — actualizado en Fase 4e con
-datos reales de Mansor, especificado según facturación colombiana; reemplaza la
-definición original de Fase 0 que era `proveedor, fecha, monto_total` + `numero_factura`
-deseado; sin líneas de producto) · RF-004 Almacenamiento (Supabase) · RF-005 Consulta
+**Funcionales:** RF-001 Captura · RF-002 OCR propio · RF-003 Extracción de campos —
+**dos perfiles**: `invoice_es` (obligatorio: **Proveedor, NIT, Fecha, IVA, Valor,
+Total** — actualizado en Fase 4e con datos reales de Mansor, especificado según
+facturación colombiana; reemplaza la definición original de Fase 0 que era `proveedor,
+fecha, monto_total` + `numero_factura` deseado; sin líneas de producto) y `contract_es`
+(agregado en ADR-0003: **Proveedor, NIT/documento, Fecha, Valor total, Vigencia, Tipo
+de contrato, Número de contrato**) · RF-004 Almacenamiento (Supabase) · RF-005 Consulta
 con filtros · RF-006
 Integración contable — **DEFERRED**, no implementar SIIGO ni mocks presentados como
 reales · RF-007 Validación humana (con trazabilidad de original vs. validado).
@@ -287,6 +300,18 @@ alcance de RF-003/RF-006/perfiles OCR sin autorización explícita, ejecutar ser
 desarrollo o herramientas de navegador en esta sesión (sección 11).
 
 ## 13. Estado actual
+
+**Perfil OCR de contratos agregado fuera de secuencia (`feature/ocr-contract-profile`,
+2026-09-08, sin merge a `main` todavía):** nuevo `document_type` `contract_es` + sección
+"Contratos" separada de "Documentos" en la app (nav, `/contracts`, `/contracts/new`),
+ver ADR-0003 (`docs/decisions/0003-perfil-ocr-contratos.md`) y la nota del cierre de
+§7/§8 de arriba. Expande RF-003 con un segundo perfil; usa Tesseract.js siempre (no
+pipeline propio); sin dataset de contratos reales para verificar la calidad de la
+extracción todavía. Verificación real hecha en esta sesión antes de proceder: el
+accuracy de `invoice_es` sobre la partición `test` es **73.8%** (1792/2427 caracteres,
+`bin/verify-active-model-accuracy.ts`), no el 80%/16,500 caracteres reportado
+inicialmente por el equipo — sigue superando el 16.1% que bloqueaba el roadmap, así que
+la condición se cumple igual, con el número correcto documentado.
 
 Fase activa: **Fase 8 — Deploy final (integración, versionado y documentación)** (en
 cierre, esperando aprobación). Fases 0, 1, 2, 3, 4a-4f, 5, 6 y 7 integradas a `main`

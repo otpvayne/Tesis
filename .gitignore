@@ -58,4 +58,6 @@ data/real/
 data/private/
 datasets/real/
 **/facturas-reales/
+**/Facturaspruebas/
+**/Facturas Ene-Dic 2023/
 **/*.confidential.*
