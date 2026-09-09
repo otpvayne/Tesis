@@ -19,6 +19,8 @@ interface NavItem {
 const MAIN_NAV: NavItem[] = [
   { href: "/documents", label: "Documentos" },
   { href: "/documents/new", label: "Nuevo documento" },
+  { href: "/contracts", label: "Contratos" },
+  { href: "/contracts/new", label: "Nuevo contrato" },
 ];
 
 /**

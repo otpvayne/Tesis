@@ -7,28 +7,28 @@ import { Button } from "@/components/common/Button";
 import { Card } from "@/components/common/Card";
 import { PageHero } from "@/components/common/PageHero";
 
-interface DocumentsSearchParams {
+interface ContractsSearchParams {
   page?: string;
   status?: string;
   dateFrom?: string;
   dateTo?: string;
 }
 
-interface DocumentsPageProps {
-  searchParams: Promise<DocumentsSearchParams>;
+interface ContractsPageProps {
+  searchParams: Promise<ContractsSearchParams>;
 }
 
 function isDocumentStatus(value: string | undefined): value is DocumentStatus {
   return !!value && (DOCUMENT_STATUSES as readonly string[]).includes(value);
 }
 
-function buildHref(sp: DocumentsSearchParams, page: number): string {
+function buildHref(sp: ContractsSearchParams, page: number): string {
   const params = new URLSearchParams();
   if (sp.status) params.set("status", sp.status);
   if (sp.dateFrom) params.set("dateFrom", sp.dateFrom);
   if (sp.dateTo) params.set("dateTo", sp.dateTo);
   params.set("page", String(page));
-  return `/documents?${params.toString()}`;
+  return `/contracts?${params.toString()}`;
 }
 
 /** Mismo criterio semántico que los badges de confianza (brand=bien, caution=en curso, critical=mal) aplicado al status del documento, no un color nuevo por status. */
@@ -41,12 +41,19 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
   processed: "bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300",
 };
 
-export default async function DocumentsPage({ searchParams }: DocumentsPageProps) {
+/**
+ * Sección "Contratos", separada de "Documentos" (facturas) -- mismo patrón
+ * que `documents/page.tsx` (reusa `listDocuments`), pero fijando el
+ * filtro `documentType: "contract_es"`. El detalle/validación de cada
+ * contrato sigue viviendo en `/documents/[id]` (esa página ya es agnóstica
+ * al perfil OCR), ver `docs/decisions/0003-perfil-ocr-contratos.md`.
+ */
+export default async function ContractsPage({ searchParams }: ContractsPageProps) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page ?? "1") || 1);
   const status = isDocumentStatus(sp.status) ? sp.status : undefined;
   // Vista actual (con filtros/página) para que el botón "Volver" del
-  // detalle regrese exactamente aquí, no a /documents sin filtros.
+  // detalle regrese exactamente aquí, no a /contracts sin filtros.
   const currentViewHref = buildHref(sp, page);
 
   const supabase = await createClient();
@@ -57,7 +64,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
 
   const result = await listDocuments(supabase, {
     ownerId: user.id,
-    filters: { documentType: "invoice_es", status, dateFrom: sp.dateFrom, dateTo: sp.dateTo },
+    filters: { documentType: "contract_es", status, dateFrom: sp.dateFrom, dateTo: sp.dateTo },
     pagination: { page, pageSize: 20 },
   });
 
@@ -66,21 +73,21 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <PageHero
-        title="Documentos"
-        description="Sube, procesa y valida tus facturas — todo tu historial en un solo lugar."
+        title="Contratos"
+        description="Sube, procesa y valida tus contratos — todo tu historial en un solo lugar."
         bullets={[
-          "Subir una factura nueva y que el sistema corra el OCR",
-          "Ver el estado de cada documento (cargado, procesado, validado)",
-          "Abrir un documento para revisar y corregir los campos extraídos",
+          "Subir un contrato nuevo y que el sistema corra el OCR",
+          "Ver el estado de cada contrato (cargado, procesado, validado)",
+          "Abrir un contrato para revisar y corregir los campos extraídos",
         ]}
         tip="Fotos de frente, bien iluminadas y sin sombras dan mejor resultado de OCR que fotos en ángulo."
       />
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          {result.totalCount} documento{result.totalCount === 1 ? "" : "s"} en total
+          {result.totalCount} contrato{result.totalCount === 1 ? "" : "s"} en total
         </p>
-        <Link href="/documents/new">
+        <Link href="/contracts/new">
           <Button size="sm">Nuevo</Button>
         </Link>
       </div>
@@ -116,7 +123,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
       </form>
 
       {result.items.length === 0 ? (
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">No hay documentos todavía.</p>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400">No hay contratos todavía.</p>
       ) : (
         <div className="flex flex-col gap-4">
           {result.items.map((doc) => (
