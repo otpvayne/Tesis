@@ -6,8 +6,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/modules/audit/log";
 import { extensionForMime, validateUploadFile } from "@/modules/documents/validation";
-import { DOCUMENTS_STORAGE_BUCKET } from "@/modules/documents/types";
+import { DOCUMENT_TYPES, DOCUMENTS_STORAGE_BUCKET, type DocumentType } from "@/modules/documents/types";
 import type { CreateDocumentState } from "@/modules/documents/state";
+
+function isDocumentType(value: FormDataEntryValue | null): value is DocumentType {
+  return typeof value === "string" && (DOCUMENT_TYPES as readonly string[]).includes(value);
+}
 
 export async function createDocument(
   _prevState: CreateDocumentState,
@@ -28,6 +32,12 @@ export async function createDocument(
     return { error: validation.error.message };
   }
 
+  const documentTypeEntry = formData.get("documentType");
+  if (!isDocumentType(documentTypeEntry)) {
+    return { error: "Tipo de documento inválido." };
+  }
+  const documentType = documentTypeEntry;
+
   const documentId = randomUUID();
   const extension = extensionForMime(validation.mime);
   const path = `${user.id}/${documentId}/original.${extension}`;
@@ -43,7 +53,7 @@ export async function createDocument(
   const { error: insertError } = await supabase.from("documents").insert({
     id: documentId,
     owner_id: user.id,
-    document_type: "invoice_es",
+    document_type: documentType,
     original_file_path: path,
     status: "uploaded",
   });
@@ -58,10 +68,11 @@ export async function createDocument(
     actorId: user.id,
     action: "DOCUMENT_CREATED",
     documentId,
-    metadata: { document_type: "invoice_es", mime: validation.mime },
+    metadata: { document_type: documentType, mime: validation.mime },
   });
 
   revalidatePath("/documents");
+  revalidatePath("/contracts");
   redirect(`/documents/${documentId}`);
 }
 

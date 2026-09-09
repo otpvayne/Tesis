@@ -9,6 +9,7 @@ import type { ValidationFieldName } from "@/modules/documents/validation-types";
  */
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   invoice_es: "Factura",
+  contract_es: "Contrato",
 };
 
 export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
@@ -36,7 +37,7 @@ export function getDocumentStatusLabel(status: string): string {
   return DOCUMENT_STATUS_LABELS[status as DocumentStatus] ?? status;
 }
 
-/** RF-003 -- único lugar donde se traducen los 6 campos extraídos a español. */
+/** RF-003 -- único lugar donde se traducen a español los campos extraídos de todos los perfiles OCR (`invoice_es` + `contract_es`, ver `docs/decisions/0003-perfil-ocr-contratos.md`). */
 export const VALIDATION_FIELD_LABELS: Record<ValidationFieldName, string> = {
   proveedor: "Proveedor",
   nit: "NIT",
@@ -44,4 +45,9 @@ export const VALIDATION_FIELD_LABELS: Record<ValidationFieldName, string> = {
   iva: "IVA",
   valor: "Valor",
   total: "Total",
+  identificacion: "NIT / Documento",
+  valorTotal: "Valor total",
+  vigencia: "Vigencia",
+  tipoContrato: "Tipo de contrato",
+  numeroContrato: "Número de contrato",
 };

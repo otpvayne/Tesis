@@ -1,18 +1,22 @@
 import { CheckIcon } from "@/components/icons/CheckIcon";
 import { VALIDATION_FIELD_LABELS } from "@/lib/constants/document-display";
 import { formatDateTime } from "@/lib/utils/format-date";
-import { NUMERIC_VALIDATION_FIELDS, VALIDATION_FIELDS, type ValidationFieldName } from "@/modules/documents/validation-types";
+import { NUMERIC_VALIDATION_FIELDS, VALIDATION_FIELDS_BY_DOCUMENT_TYPE, type ValidationFieldName } from "@/modules/documents/validation-types";
+import type { DocumentType } from "@/modules/documents/types";
 
-/** Solo lectura -- se muestra cuando `documents.status === "validated"`, en vez de la tabla editable de `ValidationSection`. */
+/** Solo lectura -- se muestra cuando `documents.status === "validated"`, en vez de la tabla editable de `ValidationSection`. Los campos mostrados dependen del perfil OCR del documento (`documentType`), no de una lista fija -- `invoice_es` y `contract_es` no comparten los mismos campos. */
 export function ValidationSummary({
+  documentType,
   validatedData,
   originalExtractedData,
   validatedAt,
 }: {
+  documentType: DocumentType;
   validatedData: Partial<Record<ValidationFieldName, unknown>>;
   originalExtractedData: Partial<Record<ValidationFieldName, unknown>>;
   validatedAt: string;
 }) {
+  const fields = VALIDATION_FIELDS_BY_DOCUMENT_TYPE[documentType] ?? [];
   return (
     <div className="animate-fade-in flex flex-col gap-3 rounded-lg border-2 border-brand-300 bg-brand-50/50 p-3 dark:border-brand-900 dark:bg-brand-950/20">
       <div className="flex items-center justify-between">
@@ -31,7 +35,7 @@ export function ValidationSummary({
           </tr>
         </thead>
         <tbody>
-          {VALIDATION_FIELDS.map((f) => {
+          {fields.map((f) => {
             const wasEdited = JSON.stringify(originalExtractedData[f] ?? null) !== JSON.stringify(validatedData[f] ?? null);
             const value = validatedData[f];
             const isNumeric = (NUMERIC_VALIDATION_FIELDS as readonly ValidationFieldName[]).includes(f);

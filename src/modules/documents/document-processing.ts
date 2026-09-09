@@ -6,6 +6,9 @@ import { logAuditEvent } from "@/modules/audit/log";
 import type { Json } from "@/types/database";
 import type { SaveOcrResultInput, SaveOcrResultOutput } from "@/modules/documents/document-processing-types";
 
+/** Metadatos de extracción comunes a todos los perfiles OCR, no campos de RF-003 -- se excluyen al persistir (`extractFields`/`extractContractFields` los agregan siempre). */
+const EXTRACTION_METADATA_KEYS = new Set(["rawOCR", "extractionMethod"]);
+
 /**
  * Persiste el resultado de un procesamiento OCR ya ejecutado — **no
  * ejecuta el pipeline aquí**. `decodeImage` (Fase 4a) usa
@@ -32,14 +35,13 @@ export async function saveOcrResult(input: SaveOcrResultInput): Promise<SaveOcrR
     throw new Error("No autenticado.");
   }
 
-  const extractedForStorage = {
-    proveedor: input.extractedData.proveedor,
-    nit: input.extractedData.nit,
-    fecha: input.extractedData.fecha,
-    iva: input.extractedData.iva,
-    valor: input.extractedData.valor,
-    total: input.extractedData.total,
-  } as unknown as Json;
+  // Genérico a propósito: cada perfil OCR (`invoice_es`, `contract_es`, ver
+  // `docs/decisions/0003-perfil-ocr-contratos.md`) trae sus propios campos
+  // -- se guardan tal cual, excluyendo solo los metadatos comunes que no
+  // son campos de RF-003.
+  const extractedForStorage = Object.fromEntries(
+    Object.entries(input.extractedData).filter(([key]) => !EXTRACTION_METADATA_KEYS.has(key)),
+  ) as unknown as Json;
 
   const { data: inserted, error } = await supabase
     .from("ocr_results")

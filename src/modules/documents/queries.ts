@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import type { DocumentStatus } from "@/modules/documents/types";
+import type { DocumentStatus, DocumentType } from "@/modules/documents/types";
 import { normalizePagination, type PaginationParams } from "@/modules/documents/pagination";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -14,6 +14,8 @@ export type DocumentWithOwnerEmail = DocumentRow & {
 };
 
 export interface DocumentFilters {
+  /** Restringe a un perfil OCR concreto -- usado por `/contracts` (fijo a `contract_es`) para separarse de `/documents` (`invoice_es`), ver `docs/decisions/0003-perfil-ocr-contratos.md`. */
+  documentType?: DocumentType;
   status?: DocumentStatus;
   /** Fecha ISO (yyyy-mm-dd), límite inferior inclusivo sobre created_at. */
   dateFrom?: string;
@@ -124,6 +126,9 @@ export async function listDocuments(
 
   if (params.ownerId) {
     query = query.eq("owner_id", params.ownerId);
+  }
+  if (filters.documentType) {
+    query = query.eq("document_type", filters.documentType);
   }
   if (filters.status) {
     query = query.eq("status", filters.status);

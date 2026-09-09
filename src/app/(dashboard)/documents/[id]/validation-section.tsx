@@ -11,7 +11,7 @@ import type { IconProps } from "@/components/icons/CheckIcon";
 import { VALIDATION_FIELD_LABELS } from "@/lib/constants/document-display";
 import { computeConfidenceLevel, parseFieldValue } from "@/modules/documents/validation-logic";
 import { saveValidation, rejectDocument } from "@/modules/documents/save-validation";
-import type { FieldValue, ValidationFieldInput, ValidationFieldName } from "@/modules/documents/validation-types";
+import { FREEFORM_TEXT_FIELDS, type FieldValue, type ValidationFieldInput, type ValidationFieldName } from "@/modules/documents/validation-types";
 
 export interface ValidationSectionField {
   field: ValidationFieldName;
@@ -149,9 +149,10 @@ export function ValidationSection({ documentId, fields }: { documentId: string; 
     status: statusFor(f),
     statusDisplay: STATUS_DISPLAY[statusFor(f)],
     isEditingThis: editingField === f.field,
-    // Proveedor es texto libre (nombre de empresa); el resto (NIT, fecha,
-    // IVA, valor, total) contiene dígitos y se lee mejor en fuente tabular.
-    isMonospaceDisplay: f.field !== "proveedor",
+    // Campos de texto libre (nombre, tipo, duración) se leen mejor en la
+    // fuente normal; el resto (identificadores, fechas, montos) contiene
+    // dígitos y se lee mejor en fuente tabular.
+    isMonospaceDisplay: !FREEFORM_TEXT_FIELDS.includes(f.field),
   }));
 
   return (

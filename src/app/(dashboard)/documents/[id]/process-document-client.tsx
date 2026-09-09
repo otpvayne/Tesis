@@ -4,9 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { runOCRPipeline } from "@/modules/ocr/pipeline/ocr-pipeline";
 import { runTesseractOCR } from "@/modules/ocr/engines/tesseract-engine";
-import { extractFields } from "@/modules/ocr/classification/field-extraction";
 import { CharacterClassifier } from "@/modules/ocr/classification/character-classifier";
+import { extractFieldsForDocumentType, ocrEngineForDocumentType, type OcrEngine } from "@/modules/ocr/classification/document-ocr-profile";
 import { saveOcrResult, markOcrFailed, markOcrStarted } from "@/modules/documents/document-processing";
+import type { DocumentType } from "@/modules/documents/types";
 import { WarningIcon } from "@/components/icons/WarningIcon";
 
 const PROCESSING_WARNING_THRESHOLD_MS = 5000; // RNF-001
@@ -21,9 +22,11 @@ const PROCESSING_WARNING_THRESHOLD_MS = 5000; // RNF-001
  * modelo activo de `ocr_models`. `"tesseract"` usa Tesseract.js
  * (`modules/ocr/engines/tesseract-engine.ts`) como motor alternativo. No
  * cambia nada para nadie que no configure la variable de entorno
- * explícitamente.
+ * explícitamente. `contract_es` ignora esta variable -- siempre usa
+ * Tesseract.js (`ocrEngineForDocumentType`, ver
+ * `docs/decisions/0003-perfil-ocr-contratos.md`).
  */
-const OCR_ENGINE: "custom" | "tesseract" = process.env.NEXT_PUBLIC_OCR_ENGINE === "tesseract" ? "tesseract" : "custom";
+const CONFIGURED_OCR_ENGINE: OcrEngine = process.env.NEXT_PUBLIC_OCR_ENGINE === "tesseract" ? "tesseract" : "custom";
 
 interface ActiveModelResponse {
   modelId: string;
@@ -40,7 +43,7 @@ interface ActiveModelResponse {
  * El resultado ya calculado se guarda con `saveOcrResult` (Server
  * Action), que sí puede correr en el servidor porque no toca canvas.
  */
-export function ProcessDocumentClient({ documentId, signedUrl, documentType }: { documentId: string; signedUrl: string; documentType: string }) {
+export function ProcessDocumentClient({ documentId, signedUrl, documentType }: { documentId: string; signedUrl: string; documentType: DocumentType }) {
   const router = useRouter();
   const [isProcessing, startProcessing] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -60,10 +63,12 @@ export function ProcessDocumentClient({ documentId, signedUrl, documentType }: {
         }
         const blob = await imageResponse.blob();
 
+        const engine = ocrEngineForDocumentType(documentType, CONFIGURED_OCR_ENGINE);
+
         let modelId: string | null;
         let ocrResult;
 
-        if (OCR_ENGINE === "tesseract") {
+        if (engine === "tesseract") {
           // Motor alternativo (excepción aprobada, ver CLAUDE.md §7): no
           // depende de ningún modelo entrenado propio, así que no se llama
           // a `/api/ocr/active-model`.
@@ -83,7 +88,7 @@ export function ProcessDocumentClient({ documentId, signedUrl, documentType }: {
         }
 
         const extractionStart = performance.now();
-        const fields = extractFields(ocrResult);
+        const fields = extractFieldsForDocumentType(documentType, ocrResult);
         const extractionMs = performance.now() - extractionStart;
         const totalMs = ocrResult.timingMs.total + extractionMs;
 

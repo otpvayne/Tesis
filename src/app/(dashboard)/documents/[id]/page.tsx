@@ -14,7 +14,8 @@ import { WarningIcon } from "@/components/icons/WarningIcon";
 import { ProcessDocumentClient } from "./process-document-client";
 import { ValidationSection, type ValidationSectionField } from "./validation-section";
 import { ValidationSummary } from "./validation-summary";
-import { VALIDATION_FIELDS, type ValidationFieldName } from "@/modules/documents/validation-types";
+import { VALIDATION_FIELDS_BY_DOCUMENT_TYPE, type ValidationFieldName } from "@/modules/documents/validation-types";
+import type { DocumentType } from "@/modules/documents/types";
 
 interface DocumentDetailPageProps {
   params: Promise<{ id: string }>;
@@ -29,14 +30,7 @@ interface StoredExtractedField {
   sourceRegion: { x: number; y: number; w: number; h: number } | null;
 }
 
-interface StoredExtractedData {
-  proveedor?: StoredExtractedField;
-  nit?: StoredExtractedField;
-  fecha?: StoredExtractedField;
-  iva?: StoredExtractedField;
-  valor?: StoredExtractedField;
-  total?: StoredExtractedField;
-}
+type StoredExtractedData = Partial<Record<ValidationFieldName, StoredExtractedField>>;
 
 export default async function DocumentDetailPage({
   params,
@@ -89,8 +83,9 @@ export default async function DocumentDetailPage({
     .limit(1)
     .maybeSingle();
 
+  const fieldsForType = VALIDATION_FIELDS_BY_DOCUMENT_TYPE[doc.document_type as DocumentType] ?? [];
   const validationFields: ValidationSectionField[] = extractedData
-    ? VALIDATION_FIELDS.map((field: ValidationFieldName) => ({
+    ? fieldsForType.map((field: ValidationFieldName) => ({
         field,
         extractedValue: extractedData[field]?.value ?? null,
         confidence: extractedData[field]?.confidence ?? 0,
@@ -154,7 +149,7 @@ export default async function DocumentDetailPage({
       </dl>
 
       {signed ? (
-        <ProcessDocumentClient documentId={doc.id} signedUrl={signed.signedUrl} documentType={doc.document_type} />
+        <ProcessDocumentClient documentId={doc.id} signedUrl={signed.signedUrl} documentType={doc.document_type as DocumentType} />
       ) : null}
 
       {ocrResult && extractedData ? (
@@ -174,6 +169,7 @@ export default async function DocumentDetailPage({
 
           {doc.status === "validated" && latestValidation ? (
             <ValidationSummary
+              documentType={doc.document_type as DocumentType}
               validatedData={latestValidation.validated_data as Partial<Record<ValidationFieldName, unknown>>}
               originalExtractedData={latestValidation.original_extracted_data as Partial<Record<ValidationFieldName, unknown>>}
               validatedAt={latestValidation.validated_at}
