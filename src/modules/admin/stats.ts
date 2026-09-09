@@ -22,7 +22,7 @@ interface DiffableValidationRow {
  * mismo cálculo).
  */
 export function computeFieldEditStats(rows: DiffableValidationRow[]): FieldEditStats {
-  const editedFieldsCount = { proveedor: 0, nit: 0, fecha: 0, iva: 0, valor: 0, total: 0 } as Record<ValidationFieldName, number>;
+  const editedFieldsCount = Object.fromEntries(VALIDATION_FIELDS.map((field) => [field, 0])) as Record<ValidationFieldName, number>;
 
   for (const row of rows) {
     const original = (row.original_extracted_data ?? {}) as Partial<Record<ValidationFieldName, unknown>>;

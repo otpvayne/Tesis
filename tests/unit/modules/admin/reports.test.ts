@@ -80,6 +80,7 @@ describe("buildValidationsReportRows", () => {
         validated_data: { nit: "222", iva: 10 },
         validated_at: "2026-08-01T00:00:00Z",
         validator: { email: "diego@example.com" },
+        document: { document_type: "invoice_es" },
       },
     ]);
 
@@ -98,6 +99,7 @@ describe("buildValidationsReportRows", () => {
         validated_data: {},
         validated_at: "2026-08-01T00:00:00Z",
         validator: null,
+        document: { document_type: "invoice_es" },
       },
     ]);
 
@@ -106,10 +108,21 @@ describe("buildValidationsReportRows", () => {
 
   it("múltiples validaciones se concatenan (flatMap), no se anidan", () => {
     const rows = buildValidationsReportRows([
-      { document_id: "doc-1", original_extracted_data: {}, validated_data: {}, validated_at: "t1", validator: null },
-      { document_id: "doc-2", original_extracted_data: {}, validated_data: {}, validated_at: "t2", validator: null },
+      { document_id: "doc-1", original_extracted_data: {}, validated_data: {}, validated_at: "t1", validator: null, document: { document_type: "invoice_es" } },
+      { document_id: "doc-2", original_extracted_data: {}, validated_data: {}, validated_at: "t2", validator: null, document: { document_type: "invoice_es" } },
     ]);
     expect(rows).toHaveLength(12);
+  });
+
+  it("cada validación usa solo los campos de su propio perfil OCR (invoice_es: 6, contract_es: 7)", () => {
+    const rows = buildValidationsReportRows([
+      { document_id: "doc-1", original_extracted_data: {}, validated_data: {}, validated_at: "t1", validator: null, document: { document_type: "invoice_es" } },
+      { document_id: "doc-2", original_extracted_data: {}, validated_data: {}, validated_at: "t2", validator: null, document: { document_type: "contract_es" } },
+    ]);
+    expect(rows.filter((r) => r[0] === "doc-1")).toHaveLength(6);
+    expect(rows.filter((r) => r[0] === "doc-2")).toHaveLength(7);
+    expect(rows.some((r) => r[0] === "doc-2" && r[1] === "Vigencia")).toBe(true);
+    expect(rows.some((r) => r[0] === "doc-1" && r[1] === "Vigencia")).toBe(false);
   });
 
   it("lista vacía no lanza", () => {

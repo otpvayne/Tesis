@@ -12,7 +12,7 @@ export async function GET() {
 
   const { data, error } = await admin.supabase
     .from("document_validations")
-    .select("document_id, original_extracted_data, validated_data, validated_at, validator:profiles(email)")
+    .select("document_id, original_extracted_data, validated_data, validated_at, validator:profiles(email), document:documents(document_type)")
     .order("validated_at", { ascending: false });
 
   if (error) {

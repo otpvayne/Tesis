@@ -1,5 +1,6 @@
 import { getDocumentStatusLabel, VALIDATION_FIELD_LABELS } from "@/lib/constants/document-display";
-import { VALIDATION_FIELDS, type ValidationFieldName } from "@/modules/documents/validation-types";
+import { VALIDATION_FIELDS, VALIDATION_FIELDS_BY_DOCUMENT_TYPE, type ValidationFieldName } from "@/modules/documents/validation-types";
+import type { DocumentType } from "@/modules/documents/types";
 import type { CsvValue } from "@/modules/admin/csv";
 
 export const DOCUMENTS_REPORT_HEADERS = ["ID", "Tipo", "Status", "Accuracy", "ValidadoEn", "UsuarioValidó", "FechaCreación"];
@@ -47,16 +48,19 @@ export interface ValidationsReportRow {
   validated_data: unknown;
   validated_at: string;
   validator: { email: string } | null;
+  /** Embed a `documents.document_type` -- decide qué campos de `VALIDATION_FIELDS_BY_DOCUMENT_TYPE` le corresponden a esta fila (perfiles distintos no comparten los mismos campos, ver `docs/decisions/0003-perfil-ocr-contratos.md`). */
+  document: { document_type: string } | null;
 }
 
 function fieldValue(data: unknown, field: ValidationFieldName): unknown {
   return (data as Partial<Record<ValidationFieldName, unknown>> | null)?.[field] ?? null;
 }
 
-/** Núcleo puro de `GET /api/admin/reports/validations` -- una fila por campo por validación (los 6 campos, no solo los editados, para que el CSV sea una auditoría completa de RF-007). */
+/** Núcleo puro de `GET /api/admin/reports/validations` -- una fila por campo del perfil OCR de ese documento por validación (no solo los editados, para que el CSV sea una auditoría completa de RF-003 -- perfil escalado a más de un tipo de documento en Fase 8). */
 export function buildValidationsReportRows(rows: ValidationsReportRow[]): CsvValue[][] {
-  return rows.flatMap((row) =>
-    VALIDATION_FIELDS.map((field) => {
+  return rows.flatMap((row) => {
+    const fields = VALIDATION_FIELDS_BY_DOCUMENT_TYPE[row.document?.document_type as DocumentType] ?? VALIDATION_FIELDS;
+    return fields.map((field) => {
       const original = fieldValue(row.original_extracted_data, field);
       const validated = fieldValue(row.validated_data, field);
       return [
@@ -67,6 +71,6 @@ export function buildValidationsReportRows(rows: ValidationsReportRow[]): CsvVal
         row.validator?.email ?? "",
         row.validated_at,
       ];
-    }),
-  );
+    });
+  });
 }

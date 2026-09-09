@@ -23,6 +23,11 @@ describe("computeFieldEditStats", () => {
       iva: 1,
       valor: 0,
       total: 1,
+      identificacion: 0,
+      valorTotal: 0,
+      vigencia: 0,
+      tipoContrato: 0,
+      numeroContrato: 0,
     });
     expect(result.totalFieldsEdited).toBe(3);
   });
