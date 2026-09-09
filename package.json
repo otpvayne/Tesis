@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "generate:model": "tsx --env-file=.env.local bin/generate-initial-model.ts"
+    "generate:model": "tsx --env-file=.env.local bin/generate-initial-model.ts",
+    "verify:model-accuracy": "tsx --env-file=.env.local bin/verify-active-model-accuracy.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
