@@ -80,14 +80,36 @@ formas distintas** (`{descriptors, labels}` armado a mano vs. `KNNClassifier.toJ
 `{samples: [...]}`). Se unificaron ambas a `KNNClassifier.toJSON()`, la única forma que
 `evaluateActiveModelOnTestPartition` sabe leer.
 
-## 6. Estado actual — sin datos reales todavía
+## 6. Estado actual — medido sobre datos reales de `invoice_es`
 
-**Contra la partición `test` real (`ocr_training_samples`): sin mediciones.** Nadie ha
-etiquetado facturas reales de Mansor en OCR LAB todavía (ver `CLAUDE.md` §13) —
-`evaluateActiveModelOnTestPartition` lanzaría su error explícito de "partición vacía"
-si se corriera hoy. Esta sección se completa con cifras reales cuando exista ese
-dataset, con fecha, versión de modelo (`ocr_models.version`) y tamaño de `test`, tal
-como exige el principio rector (§1).
+**Contra la partición `test` real (`ocr_training_samples`): medido.** El dataset de
+`invoice_es` ya no es sintético — se importaron caracteres reales de facturas de Mansor
+vía PDF (`bin/import-pdf-training-samples.ts`, rama `feature/ocr-dataset-plan`, aún sin
+mergear a `main` pero ya corrido contra el Supabase compartido real). Conteo real por
+partición (verificado 2026-09-10): **17,411 `train` / 3,040 `validation` / 2,427
+`test`**, 59 clases presentes en `test`.
+
+Evaluado con `bin/verify-active-model-accuracy.ts` (`npm run verify:model-accuracy`,
+mismo cálculo que `evaluateActiveModelOnTestPartition`) contra el modelo activo
+`ocr_models.version = 2026-09-07T17:28:15.287Z`, reproducido el 2026-09-10:
+
+**Accuracy: 73.8% (1,792/2,427 caracteres)** — supera el objetivo inicial de >70%
+(§4.2), no alcanza todavía el >80% (§4.3) ni el ≥85% final (§4.4).
+
+Confusiones más frecuentes (glifos visualmente similares, no evidencia de un pipeline
+roto): `l→I` (29), `0→D` (12), `i→I` (12), `I→A` (12), `o→O` (9), `P→p` (9), `2→3` (9),
+`8→B` (9), `a→A` (9), `a→8` (8).
+
+**`contract_es`: 0 muestras en las tres particiones** — sin dataset real todavía (ver
+`docs/decisions/0003-perfil-ocr-contratos.md`).
+
+**Pendiente, no cubierto por esta medición:** field accuracy real (por
+proveedor/nit/fecha/iva/valor/total) sobre documentos completos — el script anterior
+mide solo character accuracy prediciendo directo sobre el descriptor HOG guardado en
+`ocr_training_samples.feature_data`, no reconstruye ni evalúa documentos de extremo a
+extremo. Tampoco hay medición real de `processing_ms` (RNF-001) sobre facturas reales,
+solo sobre la factura sintética representativa de Fase 4e (§7 de
+`docs/ocr/extraction.md`).
 
 **Corrida de validación con datos sintéticos (Fase 4f, esta sesión)** — no representa
 precisión sobre facturas reales, solo confirma que la aritmética de las 4 herramientas

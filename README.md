@@ -95,10 +95,15 @@ migraciones viven en `supabase/migrations/` y se aplican con `npx supabase db pu
 
 ## OCR Pipeline (Fase 4)
 
-Motor OCR propio, de extremo a extremo, desarrollado desde cero por el equipo (sin
-Tesseract/OpenCV/ML de terceros — `CLAUDE.md` §7): preprocesamiento (4a) →
-segmentación (4b) → HOG + kNN propios (4c) → entrenamiento sintético (4d) →
-reconstrucción de texto + extracción de campos (4e) → evaluación (4f).
+Motor OCR propio, de extremo a extremo, desarrollado desde cero por el equipo:
+preprocesamiento (4a) → segmentación (4b) → HOG + kNN propios (4c) → entrenamiento
+sintético (4d) → reconstrucción de texto + extracción de campos (4e) → evaluación (4f).
+Sigue siendo el aporte académico medido de la tesis y no se elimina ni se deja de
+mantener (`CLAUDE.md` §7). **Ya no es cierto que el proyecto completo esté libre de
+OCR de terceros** — desde ADR-0002, Tesseract.js está aprobado como motor adicional
+(sección siguiente); la restricción de "construido desde cero" sigue aplicando solo al
+pipeline propio en sí (`modules/ocr/pipeline/`, `classification/`, `segmentation/`,
+`preprocessing/`).
 
 **Campos extraídos (RF-003), perfil `invoice_es`:** Proveedor, NIT, Fecha, IVA, Valor, Total.
 
@@ -109,14 +114,19 @@ pipeline propio (sin dataset de contratos reales para entrenar o evaluar todaví
 
 | Métrica | Valor medido | Contexto |
 |---|---|---|
-| Accuracy de caracteres | 88.2% | Dataset 100% sintético (alfabeto de 2 formas conocidas) — **no** representa facturas reales todavía |
-| Performance | ~4849 ms | Factura sintética representativa (~1184 caracteres), Fase 4e — dentro de <5s (RNF-001) con margen mínimo |
+| Accuracy de caracteres (real) | **73.8%** (1,792/2,427) | Partición `test` real de `ocr_training_samples`, facturas reales de Mansor — modelo activo `invoice_es` (`version=2026-09-07T17:28:15.287Z`), medido con `npm run verify:model-accuracy`. Detalle: `docs/ocr/evaluation.md` §6 |
+| Accuracy de caracteres (sintético, Fase 4f) | 88.2% | Alfabeto de 2 formas conocidas (17 muestras) — solo valida la aritmética de evaluación, no representativo |
+| Performance | ~4849 ms | Factura sintética representativa (~1184 caracteres), Fase 4e — dentro de <5s (RNF-001) con margen mínimo. Sin medición real de `processing_ms` sobre facturas reales todavía |
 | Reproducibilidad | 100% | Misma imagen, 5 corridas, varianza exacta = 0 |
 
-**v1 es 100% sintético.** El modelo kNN activo (si lo hay) fue entrenado con
-caracteres generados por Canvas, no con facturas reales de Mansor — la partición
-`test` real de `ocr_training_samples` sigue vacía. Mejora planeada con datos reales
-etiquetados en Fase 5+ (ver sección siguiente).
+**El dataset de `invoice_es` ya tiene datos reales.** 22,878 caracteres reales
+etiquetados (17,411 `train` / 3,040 `validation` / 2,427 `test`), importados desde
+facturas reales de Mansor vía PDF (`bin/import-pdf-training-samples.ts`, rama
+`feature/ocr-dataset-plan` — el script aún no está mergeado a esta rama/`main`, pero ya
+se corrió contra el Supabase compartido real). El modelo activo mide **73.8%** sobre
+esa partición `test` real (arriba) — todavía no alcanza el 80%/85% objetivo de
+`docs/ocr/evaluation.md` §4, pero ya no es una cifra sintética. **`contract_es` sigue
+sin ningún dato real** en ninguna partición (ver ADR-0003).
 
 Documentación técnica completa: [`docs/ocr/README.md`](docs/ocr/README.md).
 
@@ -133,38 +143,38 @@ excepción, su alcance y el riesgo documentado para la sustentación: `CLAUDE.md
 
 ## ⏳ Pendientes: Andres & Santiago (Fase 4 Follow-up)
 
-**Estado (actualizado 2026-08-20):** el modelo activo sigue siendo 100% sintético
-(**16.1%** de accuracy, no el 88.2% que aparecía antes en esta sección — ese número era
-de una corrida aritmética de Fase 4f con un alfabeto de 2 formas, nunca fue el modelo
-activo, ver "🏆 Estado final — Fase 8" más abajo). Buena noticia: **el etiquetado ya
-arrancó** — hay 1,000 caracteres reales en `ocr_training_samples`. Lo que falta es
-repartirlos correctamente y reentrenar.
+**Estado (actualizado 2026-09-10):** el dataset de `invoice_es` **ya no es sintético**.
+Se importaron caracteres reales de facturas de Mansor en bloque, vía PDF
+(`bin/import-pdf-training-samples.ts`, rama `feature/ocr-dataset-plan` — el código aún
+no está mergeado a esta rama/`main`, pero ya se corrió contra el Supabase compartido
+real, así que el dato en sí ya existe). Reparto real verificado el 2026-09-10:
+**17,411 `train` / 3,040 `validation` / 2,427 `test`** (76% / 13% / 11%, razonablemente
+cerca de la meta 70/15/15). El modelo activo ya se reentrenó y evaluó con esos datos:
+**73.8% de accuracy real (1,792/2,427 caracteres, 59 clases)** — reemplaza al 16.1%
+sintético que aparecía antes en esta sección (ver "🏆 Estado final — Fase 8" más abajo).
+Los puntos 1️⃣ y 2️⃣ que bloqueaban esto ya están resueltos; lo que sigue abierto es
+mejorar esa cifra y medir sobre campos completos, no solo caracteres sueltos.
 
-### 1️⃣ Repartir el dataset ya etiquetado (CRÍTICO — bloquea la evaluación real)
+### 1️⃣ Dataset repartido y modelo reentrenado con datos reales — ✅ HECHO
 
-Las 1,000 muestras etiquetadas hasta ahora quedaron **todas en la partición `train`** —
-cero en `validation`, cero en `test`. El selector de partición en `/ocr-lab/train`
-arranca en "train" por defecto; si se guarda sin cambiarlo, todo cae ahí. Sin nada en
-`test` no hay forma de medir una accuracy real sobre facturas de Mansor — es el mismo
-hueco que `docs/ocr/evaluation.md` §6 ya señalaba, y sigue abierto.
+No hace falta re-etiquetar ni redistribuir nada para llegar a esta medición — ya está
+hecho (ver estado arriba). Sigue abierto, sin ser bloqueante:
+- **Ampliar el dataset** (más PDFs, o etiquetado manual en `/ocr-lab/train` para
+  reforzar clases específicas) para subir el 73.8% hacia el 80%/85% objetivo de
+  `docs/ocr/evaluation.md` §4 — las confusiones más frecuentes (`l`↔`I`, `0`↔`D`,
+  `i`↔`I`, `2`↔`3`, `8`↔`B`, `a`↔`A`/`8`) son un buen punto de partida para saber qué
+  clases necesitan más ejemplos.
+- **`contract_es` sigue en 0 muestras** en las tres particiones — sin dataset real
+  todavía (ver ADR-0003, `docs/decisions/0003-perfil-ocr-contratos.md`).
 
-**¿Qué hacer?**
-- No hace falta re-etiquetar las 1,000 ya hechas — sirven tal cual en `train`.
-- Etiquetar el resto del dataset (o una porción nueva) eligiendo explícitamente
-  `validation`/`test` en el selector antes de guardar cada tanda.
-- Meta sugerida de reparto: **70% train / 15% validation / 15% test**, cubriendo las 62
-  clases (`0-9`, `A-Z`, `a-z`) y no solo las primeras que aparezcan al etiquetar.
+### 2️⃣ Medir field accuracy real (PENDIENTE — no cubierto por la medición anterior)
 
-### 2️⃣ Reentrenar y evaluar con datos reales (CUANDO HAYA `test` POBLADO)
-
-**¿Qué hacer?**
-- En `/ocr-lab/train`, "Entrenar modelo" (kNN sobre `train`, evalúa contra `test`).
-- Correr **"Evaluar modelo activo sobre 'test'"** (ya construido desde Fase 4f) y anotar
-  la accuracy real en `docs/ocr/evaluation.md` — sea cual sea el número, se documenta
-  tal cual sale, nunca se infla ni se asume.
-- "Activar este modelo" es un paso manual aparte, a propósito — solo actívenlo si supera
-  al sintético actual (16.1%). Si el primer intento con datos reales no llega al 80% del
-  propio umbral del código, está bien: es la primera medición real, no un fracaso.
+`bin/verify-active-model-accuracy.ts` mide solo **character accuracy**, prediciendo
+directo sobre el descriptor HOG guardado (`ocr_training_samples.feature_data`), sin
+reconstruir documentos completos. Falta todavía medir accuracy **por campo**
+(proveedor/nit/fecha/iva/valor/total) sobre facturas reales completas — eso requiere
+correr el pipeline de extremo a extremo (`runOCRPipelineOnImageData`) contra imágenes
+reales, no solo caracteres sueltos ya segmentados. Ver `docs/ocr/evaluation.md` §2/§6.
 
 ### 3️⃣ Validación y corrección de campos (CONTINUO)
 
@@ -187,9 +197,11 @@ hueco que `docs/ocr/evaluation.md` §6 ya señalaba, y sigue abierto.
 | Tarea | Estado | Responsable |
 |-------|--------|-------------|
 | Fase 4 (OCR v0.4.0-ocr) | ✅ Completada | Claude Code |
-| **Etiquetado caracteres reales** | 🟡 **En progreso** — 1,000 muestras, todas en `train`, 0 en `validation`/`test` | **Andres & Santiago** |
-| **Repartir dataset a validation/test** | ⏳ **PENDIENTE** — bloquea la evaluación real | **Andres & Santiago** |
-| **Reentrenamiento + evaluación del modelo** | ⏳ **PENDIENTE** — depende del punto anterior | **Andres & Santiago** |
+| **Caracteres reales importados (`invoice_es`)** | ✅ **Hecho** — 22,878 (17,411/3,040/2,427 train/validation/test), vía import de PDFs (`feature/ocr-dataset-plan`) | — |
+| **Reentrenamiento + evaluación del modelo** | ✅ **Hecho** — 73.8% real sobre `test` (1,792/2,427) | — |
+| **Subir accuracy real hacia 80%/85%** | ⏳ **PENDIENTE** — ampliar dataset en las clases más confundidas | **Andres & Santiago** |
+| **Field accuracy real (por campo, no solo caracteres)** | ⏳ **PENDIENTE** — no medido todavía | **Andres & Santiago** |
+| **Dataset real de `contract_es`** | ⏳ **PENDIENTE** — 0 muestras en las 3 particiones | **Andres & Santiago** |
 | Fase 5 (Validación humana / RF-007) | ✅ Integrada a `main` | Claude Code |
 | **Probar UI de validación en `/documents/[id]` (checklist manual)** | ⏳ **PENDIENTE** | **Andres & Santiago** |
 | Fase 6 (Admin) | ✅ Integrada a `main` | Claude Code |
@@ -198,7 +210,13 @@ hueco que `docs/ocr/evaluation.md` §6 ya señalaba, y sigue abierto.
 
 ### Para Andres & Santiago
 
-**Step 1: Completar el etiquetado (eligiendo partición)**
+**Step 1 (opcional): ampliar el dataset real**
+
+El import de PDFs (`feature/ocr-dataset-plan`) ya pobló las tres particiones — no es
+obligatorio etiquetar a mano para tener algo que medir. Si quieren subir el 73.8%
+actual, dos caminos, no excluyentes: importar más PDFs de facturas de Mansor, o
+reforzar a mano en OCR LAB las clases más confundidas (`l`/`I`, `0`/`D`, `2`/`3`,
+`8`/`B`, `a`/`A`):
 ```
 1. Abre https://tesis-sigma-bay.vercel.app → /ocr-lab/train/
 2. Sube una factura de Mansor
@@ -207,7 +225,6 @@ hueco que `docs/ocr/evaluation.md` §6 ya señalaba, y sigue abierto.
    por defecto queda en "train"; hay que cambiarlo a mano para que algo caiga
    en validation/test
 5. Click "Guardar etiquetas"
-6. Meta: ~70% train / 15% validation / 15% test, cubriendo las 62 clases
 ```
 
 **Step 2: Validar OCR**
@@ -218,26 +235,28 @@ hueco que `docs/ocr/evaluation.md` §6 ya señalaba, y sigue abierto.
 4. "Guardar validación" o "Rechazar documento" si la captura no sirve
 ```
 
-**Step 3: Reentrenar y evaluar**
+**Step 3: Reentrenar y evaluar (si ampliaron el dataset)**
 ```
-1. `/ocr-lab/train/` (después de tener muestras reales en validation Y test)
+1. `/ocr-lab/train/`
 2. Click "Entrenar modelo"
 3. Click "Evaluar modelo activo sobre 'test'" y anotar la accuracy real
-4. Click "Activar este modelo" (paso manual aparte) si mejora al 16.1% actual
+4. Click "Activar este modelo" (paso manual aparte) solo si mejora el 73.8% actual
 ```
 
 ### FAQ
 
-**P: ¿Cuánto tiempo toma?**
-R: ~5 segundos por carácter. 1,500 caracteres = 3-4 horas.
+**P: ¿Cuánto tiempo toma etiquetar a mano?**
+R: ~5 segundos por carácter. 1,500 caracteres = 3-4 horas — pero ya no es obligatorio
+partir de cero, el dataset real ya tiene 22,878 caracteres importados.
 
 **P: ¿Qué pasa si me equivoco?**
-R: Dataset pequeño, 1-2 errores no importan. Puedes re-etiquetar.
+R: Puedes re-etiquetar cualquier muestra individual.
 
-**P: ¿Por qué falla el OCR?**
-R: El modelo activo hoy es 100% sintético (16.1% accuracy, sin datos reales evaluados
-todavía). Es esperado. Ustedes lo van a mejorar repartiendo el dataset real y
-reentrenando (ver puntos 1️⃣ y 2️⃣ arriba).
+**P: ¿Por qué el OCR no reconoce todo bien?**
+R: El modelo activo mide 73.8% de accuracy real sobre facturas reales de Mansor (no
+16.1% sintético como antes) — mejor que antes, pero todavía por debajo del 80%/85%
+objetivo. Las confusiones más frecuentes son entre glifos parecidos (`l`/`I`, `0`/`D`,
+`2`/`3`). Ver puntos 1️⃣ y 2️⃣ arriba para cómo seguir mejorándolo.
 
 ### Documentación
 
@@ -248,17 +267,21 @@ reentrenando (ver puntos 1️⃣ y 2️⃣ arriba).
 
 ## 🏆 Estado final — Fase 8
 
-**Fases 4-7 integradas a `main`; Fase 8 en cierre, esperando aprobación.** Esto es un MVP funcional de punta a punta con datos
-**sintéticos** — no un sistema terminado con accuracy usable sobre facturas reales de
-Mansor todavía. Ver `CLAUDE.md` §13 y `docs/requirements/traceability.md` para el
-detalle completo fase por fase; esta sección resume solo los números reales, medidos en
-esta sesión (nunca estimados).
+**Fases 4-7 integradas a `main`; Fase 8 en cierre, esperando aprobación.** Esto es un MVP
+funcional de punta a punta. El dataset de caracteres de `invoice_es` **ya no es
+sintético** (22,878 caracteres reales de facturas de Mansor, 73.8% accuracy real sobre
+`test` — ver sección "OCR Pipeline" arriba y `docs/ocr/evaluation.md` §6), pero
+**field accuracy sobre documentos completos reales todavía no se ha medido**, y
+`contract_es` sigue sin ningún dato real. No es todavía un sistema con accuracy por
+campo verificada sobre facturas reales de Mansor de punta a punta. Ver `CLAUDE.md` §13 y
+`docs/requirements/traceability.md` para el detalle completo fase por fase; esta sección
+resume solo los números reales, medidos (nunca estimados).
 
 ### Status por componente
 
 | Componente | Estado | Notas |
 |---|---|---|
-| OCR Pipeline (4a-4f) | ✅ Implementado | Preprocesamiento → segmentación → clasificación (HOG+kNN propios) → extracción de 6 campos → evaluación. Sin dependencias de OCR/CV/ML de terceros (`CLAUDE.md` §7). |
+| OCR Pipeline (4a-4f) | ✅ Implementado | Preprocesamiento → segmentación → clasificación (HOG+kNN propios) → extracción de 6 campos → evaluación. Pipeline propio construido desde cero (`CLAUDE.md` §7); el proyecto en conjunto también admite Tesseract.js (ADR-0002) como motor adicional/de contingencia, ver sección "OCR Pipeline" arriba. |
 | UI de validación (5) | ✅ Implementado, sin verificación visual | Edición inline, estados ✅/🔧/⏳, persistencia real contra Supabase — interacción en navegador pendiente de verificación manual (`CLAUDE.md` §11). |
 | Admin panel (6) | ✅ Implementado, sin verificación visual | Dashboard, documentos, validaciones, modelos, reportes CSV/JSON. |
 | Testing (7) | ✅ Regresión real + ⚠️ E2E sin ejecutar | Ver tabla de métricas abajo. Playwright escrito y corregido contra el código real, nunca corrido en esta sesión (`CLAUDE.md` §11). |
@@ -273,14 +296,18 @@ esta sesión (nunca estimados).
 | Performance OCR | 4849.2 ms, factura sintética representativa (~1184 caracteres), Fase 4e | <5000 ms (RNF-001) | ⚠️ dentro del límite, margen mínimo |
 | Reproducibilidad | 100% (varianza 0 exacta, 5 corridas) | 100% | ✅ |
 | Campos extraídos (RF-003) | 6/6 (Proveedor, NIT, Fecha, IVA, Valor, Total) | 6 | ✅ |
-| **Accuracy del modelo activo** | **16.1%** — 62 clases, medido sobre su propio split de test **sintético** (no facturas reales de Mansor: esa partición sigue vacía, ver `CLAUDE.md` §13) | — | ⚠️ muy bajo, esperado para v1 sintético |
+| **Accuracy del modelo activo** | **73.8%** (1,792/2,427) — 59 clases, medido sobre la partición `test` **real** de `invoice_es` (facturas de Mansor, no sintético), `ocr_models.version=2026-09-07T17:28:15.287Z` | 80% (§4.3 de `docs/ocr/evaluation.md`) | ⚠️ por debajo del objetivo, por encima del >70% inicial (§4.2) |
 
-**Sobre el 16.1%:** es el único número de accuracy que corresponde al modelo
-*realmente activo* hoy (`ocr_models`, generado en Fase 5 vía `npm run generate:model`).
-Una corrida distinta y no comparable, de Fase 4f, midió 88.2% sobre un alfabeto
-sintético de solo 2 formas (17 muestras) para validar que la aritmética de evaluación
-era correcta — nunca fue el modelo activo ni una cifra representativa. Ningún número de
-accuracy en este proyecto viene todavía de una factura real de Mansor.
+**Sobre el 73.8%:** es el número de accuracy real y actual del modelo *realmente
+activo* hoy (`ocr_models`), medido con `bin/verify-active-model-accuracy.ts`
+(`npm run verify:model-accuracy`) contra 2,427 caracteres reales de facturas de Mansor
+— reproducido el 2026-09-10, mismo resultado. Dos cifras anteriores, ya obsoletas, no
+representan el estado actual: **16.1%** fue la primera activación del modelo (Fase 5),
+antes de que existiera dataset real, sobre un split 100% sintético; **88.2%** fue una
+corrida de Fase 4f sobre un alfabeto sintético de solo 2 formas (17 muestras) para
+validar que la aritmética de evaluación era correcta, nunca representó al modelo
+activo. `contract_es` sigue sin ningún dato real (0 muestras) — no hay número de
+accuracy que reportar para ese perfil todavía.
 
 ### Versión
 
