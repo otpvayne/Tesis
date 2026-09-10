@@ -301,6 +301,45 @@ desarrollo o herramientas de navegador en esta sesión (sección 11).
 
 ## 13. Estado actual
 
+**Sesión 2026-09-10 (`feature/ocr-contract-profile`, sin merge a `main` todavía) —
+continuación de la de abajo:** tres commits nuevos sobre esa rama, detalle completo de
+cada uno en `docs/decisions/0003-perfil-ocr-contratos.md` (sección "Pendientes",
+actualización 2026-09-10): (1) reconciliación de `README.md`/`docs/ocr/evaluation.md`
+con el accuracy real (73.8%, no el 16.1%/88.2% que quedaron ahí de sesiones previas);
+(2) fix de un bug real en el keyword `"Contrato N°"` (límite de palabra `\b` no
+matcheaba cuando el keyword termina en símbolo); (3) fix de un bug real de parseo de
+montos en pesos colombianos (`MONEY_PATTERN` asumía formato dólar, truncaba montos
+reales) — portado a mano desde una rama de otra sesión (`fix/colombian-money-parsing`,
+no mergeada en ningún lado) porque nuestro refactor ya había movido ese código a
+`field-extraction-helpers.ts`. Verificado: tsc limpio, eslint limpio, 393/393 tests.
+
+**`git push` seguía fallando por autenticación al cierre de esta sesión** (Credential
+Manager sin sesión válida vía CLI) — el equipo iba a intentar pushear los commits desde
+VS Code en su lugar; **no confirmado en esta sesión si funcionó**. Revisar al empezar la
+próxima sesión (`git log origin/feature/ocr-contract-profile` vs. local).
+
+**Dos pendientes nuevos, pedidos explícitamente por Santiago al cierre de esta sesión,
+para retomar mañana (detalle completo, con archivos y líneas concretas, en el ADR-0003
+arriba mencionado):**
+
+1. **Contratos multi-página** — hoy `upload-form.tsx` solo permite subir/capturar UNA
+   foto por documento ("Elegir otra imagen" reemplaza, no agrega). En un contrato real,
+   campos obligatorios de RF-003 (`Valor total`, `Fecha`, `Vigencia`, etc.) suelen estar
+   en páginas que no son la portada — hace falta poder subir varias fotos y que todas
+   queden asociadas al mismo contrato. Expande RF-001 para `contract_es` — sigue el
+   proceso normal de §3 (reportar REQUERIMIENTO AFECTADO antes de implementar) al
+   retomarlo, no se implementa directo.
+2. **Revisar dónde y cómo quedan guardadas las fotos originales, de contratos Y de
+   facturas, para poder verlas más adelante (no solo al subirlas).** Hoy
+   `documents.original_file_path` es `text not null`, un solo archivo por fila de
+   `documents` (`{user_id}/{document_id}/original.{extension}`) — confirmado en
+   `supabase/migrations/20260811200929_create_documents.sql` y
+   `src/modules/documents/actions.ts`. Falta confirmar que las URLs firmadas (§6) se
+   puedan generar/abrir tiempo después de subida, no solo en el momento — no verificado
+   en navegador todavía (§11). **Conectado con el punto 1**: si un contrato pasa a tener
+   varias fotos, el esquema de "un archivo por documento" ya no alcanza — hay que
+   decidir esto junto con el punto 1, no por separado.
+
 **Perfil OCR de contratos agregado fuera de secuencia (`feature/ocr-contract-profile`,
 2026-09-08, sin merge a `main` todavía):** nuevo `document_type` `contract_es` + sección
 "Contratos" separada de "Documentos" en la app (nav, `/contracts`, `/contracts/new`),

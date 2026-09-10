@@ -137,6 +137,101 @@ No existe todavía ningún dataset de contratos reales etiquetados.
 - Revisar visualmente los nuevos links de nav ("Contratos"/"Nuevo contrato") en mobile
   y desktop — no verificable sin navegador en esta sesión.
 
+## Actualización 2026-09-10
+
+**Resuelto en esta sesión** (commits sobre `feature/ocr-contract-profile`, detalle en
+cada mensaje de commit):
+
+- ~~`README.md` tiene deuda previa...~~ — **RESUELTO**: `README.md` y
+  `docs/ocr/evaluation.md` reconciliados con el accuracy real medido (**73.8%**,
+  1792/2427 caracteres, partición `test` real — no el 16.1%/88.2% que quedaban ahí de
+  sesiones anteriores). Commit `docs: reconciliar README.md y evaluation.md con
+  accuracy real medida`.
+- **Bug real encontrado y corregido, keyword `"Contrato N°"`**: `buildKeywordRegex`
+  (`field-extraction-helpers.ts`) ponía `\b` fijo en ambos extremos de todo keyword —
+  como "N°" termina en símbolo (no en carácter de palabra), ese `\b` nunca matcheaba
+  seguido de un espacio (el caso real: "Contrato N° 123..."). Corregido para que solo
+  agregue `\b` en el extremo que realmente es alfanumérico. Beneficia también a
+  `invoice_es` (ningún keyword de facturas tenía el problema, pero el fix es genérico).
+  Test de regresión agregado y verificado con `git stash` (falla sin el fix, pasa con
+  él). Commit `fix(ocr): keyword que termina en simbolo no matcheaba en texto real`.
+- **Bug real de montos en pesos colombianos, heredado por `contract_es`**: otra sesión
+  (rama `fix/colombian-money-parsing`, no mergeada en ningún lado todavía) encontró que
+  `MONEY_PATTERN` asumía formato dólar (2 decimales exactos) y truncaba montos reales
+  ("71.000" → "71", "11.334" → "11.33"). Como `contract_es` comparte `extractMoneyField`
+  con `invoice_es` (`field-extraction-helpers.ts`), el campo **Valor total** de
+  contratos tenía el mismo bug sin corregir. Portado a mano (no cherry-pick directo —
+  el fix original tocaba `field-extraction.ts`, pero esa lógica ya vivía en
+  `field-extraction-helpers.ts` en esta rama por nuestro propio refactor). De paso se
+  corrigieron los tests de `contract-field-extraction.test.ts` que usaban formato dólar
+  (escritos en paralelo, antes de que este fix existiera en ningún lado — ninguna de
+  las dos sesiones sabía de la otra). Commit `fix(ocr): interpretar montos con formato
+  de pesos colombianos, no dolares`.
+- Verificado tras los tres commits: `npx tsc --noEmit` limpio, `npx eslint .` limpio,
+  suite completa **393/393**.
+
+**Backup local creado antes de commitear**: rama `backup/ocr-contract-profile-2026-09-10-pre-doc-fix`
+apuntando al commit previo a esta sesión (`8373f17`) — no se pushea, solo para poder
+revertir localmente si hace falta.
+
+**`git push` seguía fallando por autenticación (CLI) al cierre de esta sesión** —
+Credential Manager configurado pero sin sesión válida; se colgaba esperando login
+interactivo que este entorno no puede completar. El equipo iba a intentar el push de
+estos 3 commits desde VS Code en su lugar (probablemente tiene su propio flujo de auth
+con GitHub) — **no confirmado en esta sesión si terminó funcionando**. Revisar al
+empezar la próxima sesión.
+
+**Hallazgo colateral, investigando por qué `git fetch` traía ramas nuevas
+inesperadas**: `origin/main` tenía 6 commits que nuestro `main` local no tenía
+(ADR-0002 + integración de Tesseract.js, mergeados vía PR por otra sesión) — resultó
+ser un falso alarma: esos commits YA son ancestros de `feature/ocr-contract-profile`
+(nuestra rama arrancó de ahí), solo el puntero de `main` local estaba desactualizado.
+Sin conflicto real, pero el puntero local de `main` sigue sin actualizarse — hacerlo
+antes de cualquier merge futuro (`git fetch && git checkout main && git merge
+--ff-only origin/main`, sin tocar la rama de contratos).
+
+**Dos pendientes nuevos, pedidos explícitamente por Santiago al cierre de esta
+sesión — documentar, no implementar todavía:**
+
+1. **Contratos multi-página.** Hoy `src/modules/documents/upload-form.tsx` (usado por
+   `/documents/new` y `/contracts/new`, ver punto 5 de la Decisión arriba) tiene un
+   único `<input type="file">` sin `multiple` y un único `selectedFile` en estado — el
+   botón "Elegir otra imagen" **reemplaza** la foto capturada, no permite agregar una
+   segunda. Problema real: en un contrato físico, los datos obligatorios de RF-003
+   (`Valor total`, `Fecha`, `Vigencia`, `Tipo de contrato`, `Número de contrato`) casi
+   nunca están todos en la primera página — suelen estar repartidos entre la carátula y
+   las páginas de condiciones/firmas. Con el flujo actual, el usuario solo puede subir
+   una página, y el resto del contrato nunca llega a extraerse ni a quedar guardado.
+   **Se necesita:** poder capturar/subir varias fotos en `/contracts/new` y que todas
+   queden asociadas al MISMO contrato (no como documentos separados sin relación entre
+   sí). Esto expande RF-001 (`CLAUDE.md` §8) específicamente para `contract_es` — al
+   retomarlo, sigue el proceso normal de `CLAUDE.md` §3 (reportar REQUERIMIENTO
+   AFECTADO / PROBLEMA / CAUSA / IMPACTO / PROPUESTA DE CAMBIO / TRAZABILIDAD AFECTADA
+   antes de tocar código), no se implementa directo — está conectado con el punto 2
+   siguiente y conviene decidir ambos juntos.
+2. **Revisar dónde y cómo quedan guardadas las fotos originales — de contratos Y de
+   facturas — para poder verlas más adelante, no solo en el momento de subirlas.** Es
+   justamente lo que le da valor a tener un sistema digitalizado en vez de solo
+   extracción de datos: poder volver a la foto original si hace falta revisar algo.
+   Estado real hoy, confirmado en el código (no supuesto):
+   - `documents.original_file_path` es `text not null` — **un solo archivo por fila de
+     `documents`**, ruta `{user_id}/{document_id}/original.{extension}`
+     (`supabase/migrations/20260811200929_create_documents.sql`,
+     `src/modules/documents/actions.ts`, función que arma el `path` y hace el
+     `.upload(...)` contra el bucket privado).
+   - El mecanismo de visualización (URLs firmadas, `CLAUDE.md` §6) existe en el código,
+     pero **no está verificado en esta sesión** que efectivamente se pueda generar y
+     abrir la URL firmada tiempo después de la subida (no solo justo al procesar el
+     documento) — requiere navegador, bloqueado por `CLAUDE.md` §11.
+   - **Este punto está directamente conectado con el punto 1**: si `contract_es` pasa a
+     tener varias fotos por contrato, el esquema actual de "un archivo por documento"
+     ya no alcanza tal cual está — hay que decidir si es un array de rutas en la misma
+     fila, una tabla nueva (ej. `document_pages`, `contract_id` + `page_number` +
+     `file_path`), o varias filas de `documents` enlazadas por un identificador de
+     grupo. No tiene sentido resolver el almacenamiento de facturas (que siguen siendo
+     una foto por documento) por separado del de contratos si van a compartir el mismo
+     mecanismo — decidir los dos puntos juntos, no por separado.
+
 ## Consecuencias
 
 - RF-003 ahora cubre dos perfiles con campos propios cada uno; la matriz de
