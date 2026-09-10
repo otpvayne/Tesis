@@ -139,15 +139,17 @@ crecimiento, no una confirmación de que el rendimiento está resuelto.
 
 ## 7. Limitaciones conocidas
 
-1. **Formato numérico simple** (`\d+[.,]\d{2}`): no maneja separador de miles
-   (`1.234.567,89`, formato colombiano típico) — el regex solo captura el último
-   segmento con 2 decimales. Facturas con montos de 7+ cifras dan un valor truncado,
-   no un error explícito. Ajustar el patrón cuando se vea el problema en facturas
-   reales (Fase 4f/evaluación), no antes — sin datos reales que lo confirmen sería
-   complejidad especulativa.
-2. **NIT sin puntos ni guion** en formatos no colombianos, o con dígito de
-   verificación separado por espacio: el patrón asume exactamente
-   `XXX.XXX.XXX-X` o dígitos corridos; otros formatos necesitan un patrón adicional.
+1. ~~**Formato numérico simple** (no manejaba separador de miles)~~ — **RESUELTO**
+   (2026-09-08, probado contra una factura real de Mansor vía Tesseract.js): el
+   patrón viejo (`\d+[.,]\d{2}`) asumía formato dólar con exactamente 2 decimales y
+   le comía dígitos a montos colombianos reales ("11.334" → "11.33", "71.000" →
+   "71.00"). `MONEY_PATTERN`/`parseColombianMoney`
+   (`field-extraction-helpers.ts`) ahora reconocen grupos de miles con punto y
+   decimales opcionales solo tras coma — cubre `invoice_es` y `contract_es` por
+   igual, ambos usan `extractMoneyField`.
+2. ~~**NIT con dígito de verificación separado por espacio**~~ — **RESUELTO** (misma
+   sesión/prueba): Tesseract.js a veces reconoce el guión del NIT como un espacio
+   (`900341337 4` en vez de `900341337-4`); `NIT_PATTERN` ahora acepta ambas formas.
 3. **Proveedor sin heurística robusta**: a diferencia de los otros 5 campos, no hay un
    patrón estructural — depende de que exista una keyword (`Proveedor:`, `Emisor:`)
    o, en su defecto, de que la primera línea reconocida sea efectivamente el nombre

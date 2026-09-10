@@ -142,13 +142,45 @@ export function extractStringField(ocrResult: OCRResult, pattern: RegExp, keywor
   };
 }
 
-const MONEY_PATTERN = /\d+[.,]\d{2}/g;
+/**
+ * Monto en pesos colombianos: NUNCA tiene centavos de uso práctico, y el
+ * punto es separador de MILES, no decimal (`71.000` = 71.000 pesos, no
+ * 71.00). Antes este patrón asumía formato de dólares (`\d+[.,]\d{2}`,
+ * exactamente 2 decimales) — bug real encontrado probando con facturas
+ * reales de Mansor (2026-09-08): a "11.334" (COP) le extraía "11.33"
+ * (le comía el último dígito), y a "71.000" le extraía "71.00"
+ * (perdía el cero final) porque el patrón exigía exactamente 2 dígitos
+ * tras el separador. Afectaba a IVA/Valor/Total de `invoice_es` y a
+ * Valor total de `contract_es` por igual, porque ambos perfiles
+ * comparten `extractMoneyField` — no era un problema de reconocimiento
+ * de caracteres, sino de cómo se interpretaba el texto ya reconocido.
+ *
+ * Dos alternativas: (1) grupos de miles con punto, `\d{1,3}(\.\d{3})+`,
+ * con decimales opcionales tras coma (`11.334,50`); (2) tira de dígitos
+ * sin separador (`150000`) con los mismos decimales opcionales — cubre
+ * el caso en que el OCR no reconoce los puntos de miles como caracteres
+ * separados.
+ */
+const MONEY_PATTERN = /\$?\s?\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\$?\s?\d+(?:,\d{1,2})?/g;
+
+/**
+ * Convierte el texto ya emparejado por `MONEY_PATTERN` a un número real:
+ * quita `$`/espacios, quita los puntos de MILES (no son decimales en
+ * formato colombiano), y solo entonces convierte una coma decimal (si la
+ * hay) a punto para que `parseFloat` la entienda. Separada de
+ * `extractMoneyField` para poder testear la conversión numérica sola,
+ * sin pasar por `findBestMatch`.
+ */
+export function parseColombianMoney(raw: string): number {
+  const withoutThousands = raw.replace(/[$\s]/g, "").replace(/\.(?=\d{3})/g, "");
+  return parseFloat(withoutThousands.replace(",", "."));
+}
 
 export function extractMoneyField(ocrResult: OCRResult, keywords: string[]): ExtractedField<number> {
   const match = findBestMatch(ocrResult.rawText, MONEY_PATTERN, keywords);
   if (!match) return { value: null, confidence: 0, sourceRegion: null };
   return {
-    value: parseFloat(match.raw.replace(",", ".")),
+    value: parseColombianMoney(match.raw),
     confidence: match.confidence,
     sourceRegion: sourceRegionOf(lineAtIndex(ocrResult.lines, match.index)),
   };

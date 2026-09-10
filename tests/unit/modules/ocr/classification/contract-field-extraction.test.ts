@@ -23,7 +23,7 @@ describe("extractContractFields", () => {
       "Proveedor: Acme Suministros SAS",
       "NIT 900123456",
       "Fecha 12/08/2025",
-      "Valor total 1468.12",
+      "Valor total 1.468.000",
       "Vigencia: 12 meses",
       "Tipo de contrato: Prestación de servicios",
       "Número de contrato: CT-2025-014",
@@ -34,7 +34,9 @@ describe("extractContractFields", () => {
     expect(fields.proveedor).toMatchObject({ value: "Acme Suministros SAS", confidence: 0.9 });
     expect(fields.identificacion).toMatchObject({ value: "900123456", confidence: 0.95 });
     expect(fields.fecha).toMatchObject({ value: "12/08/2025", confidence: 0.95 });
-    expect(fields.valorTotal).toMatchObject({ value: 1468.12, confidence: 0.95 });
+    // Formato colombiano real (punto = separador de miles, no decimal) -- ver
+    // el fix de MONEY_PATTERN/parseColombianMoney en field-extraction-helpers.ts.
+    expect(fields.valorTotal).toMatchObject({ value: 1468000, confidence: 0.95 });
     expect(fields.vigencia).toMatchObject({ value: "12 meses", confidence: 0.9 });
     expect(fields.tipoContrato).toMatchObject({ value: "Prestación de servicios", confidence: 0.9 });
     expect(fields.numeroContrato).toMatchObject({ value: "CT-2025-014", confidence: 0.95 });
@@ -61,9 +63,9 @@ describe("extractContractFields", () => {
   });
 
   it("campo ambiguo: la keyword existe pero no está pegada al número -> confidence 0.7", () => {
-    const ocrResult = makeOCRResult(["Valor total del contrato, sujeto a IVA: 1468.12"]);
+    const ocrResult = makeOCRResult(["Valor total del contrato, sujeto a IVA: 1.468.000"]);
     const fields = extractContractFields(ocrResult);
-    expect(fields.valorTotal.value).toBe(1468.12);
+    expect(fields.valorTotal.value).toBe(1468000);
     expect(fields.valorTotal.confidence).toBe(0.7);
   });
 
