@@ -81,4 +81,15 @@ describe("extractContractFields", () => {
     const fields = extractContractFields(ocrResult);
     expect(fields.vigencia).toEqual({ value: null, confidence: 0, sourceRegion: null });
   });
+
+  it("número de contrato: keyword 'Contrato N°' (termina en símbolo, no en letra) sí reconoce el valor pegado", () => {
+    // Regresión: "N°" termina en un carácter que no es de palabra ("°"), así que un
+    // límite de palabra (\b) fijo al final del keyword nunca matcheaba cuando el
+    // símbolo estaba seguido de un espacio -- el caso real más común. Sin el fix de
+    // `buildKeywordRegex`, este caso caía al nivel de confianza 0.5 (conjetura, sin
+    // keyword detectada) en vez de 0.95 (adyacente a la keyword).
+    const ocrResult = makeOCRResult(["Contrato N° 2026-045"]);
+    const fields = extractContractFields(ocrResult);
+    expect(fields.numeroContrato).toMatchObject({ value: "2026-045", confidence: 0.95 });
+  });
 });

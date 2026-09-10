@@ -37,15 +37,31 @@ export interface FieldMatch {
 }
 
 /**
+ * Construye el regex de un keyword con límite de palabra (`\b`) — sin esto,
+ * buscar "Total" encontraría también la "total" dentro de "Subtotal". `\b`
+ * solo es una transición válida entre un carácter de palabra y uno que no
+ * lo es: si el keyword empieza o termina en un símbolo (p. ej. "Contrato
+ * N°"), un `\b` fijo en ese extremo nunca matchea cuando el símbolo está
+ * seguido de otro no-palabra (un espacio, lo más común en texto real) —
+ * bug encontrado verificando `contract-field-extraction.ts` antes de tener
+ * contratos reales para probar. Se agrega `\b` en cada extremo solo cuando
+ * ese extremo del keyword es realmente un carácter de palabra.
+ */
+export function buildKeywordRegex(keyword: string, flags: string): RegExp {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const startBoundary = /^\w/.test(keyword) ? "\\b" : "";
+  const endBoundary = /\w$/.test(keyword) ? "\\b" : "";
+  return new RegExp(`${startBoundary}${escaped}${endBoundary}`, flags);
+}
+
+/**
  * Todas las posiciones (fin de match, offset en `text`) donde aparece
- * alguna de `keywords`, con límite de palabra (`\b`) — sin esto, buscar
- * "Total" encontraría también la "total" dentro de "Subtotal".
+ * alguna de `keywords`.
  */
 export function findKeywordEnds(text: string, keywords: string[]): number[] {
   const ends: number[] = [];
   for (const keyword of keywords) {
-    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`\\b${escaped}\\b`, "gi");
+    const regex = buildKeywordRegex(keyword, "gi");
     for (const match of text.matchAll(regex)) {
       ends.push(match.index + match[0].length);
     }
@@ -148,8 +164,8 @@ export function extractMoneyField(ocrResult: OCRResult, keywords: string[]): Ext
 export function extractKeywordLineField(ocrResult: OCRResult, keywords: string[], fallbackPattern?: RegExp): ExtractedField<string> {
   for (const line of ocrResult.lines) {
     for (const keyword of keywords) {
-      const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const match = new RegExp(`\\b${escaped}\\b\\s*[:.]?\\s*`, "i").exec(line.text);
+      const keywordRegex = buildKeywordRegex(keyword, "i");
+      const match = new RegExp(`${keywordRegex.source}\\s*[:.]?\\s*`, "i").exec(line.text);
       if (match) {
         const rest = line.text.slice(match.index + match[0].length).trim();
         if (rest.length > 0) {
