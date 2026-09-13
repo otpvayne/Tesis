@@ -301,6 +301,39 @@ desarrollo o herramientas de navegador en esta sesión (sección 11).
 
 ## 13. Estado actual
 
+**Sesión 2026-09-13 (`feature/ocr-contract-profile`) — dos hallazgos importantes, sin
+resolver el primero todavía:**
+
+**1. CAMBIOS EXTERNOS DETECTADOS al empezar la sesión, reportado al equipo, resolución
+pendiente:** `git fetch` mostró que `feature/ocr-contract-profile` **nunca llegó a
+existir en `origin`** — el intento de push desde VS Code que quedó pendiente al cierre
+de la sesión de 2026-09-10 sí funcionó, pero apuntó a **`main` directamente**, no a la
+rama de la fase. `origin/main` tiene, commit por commit con el mismo hash, todo el
+trabajo de esta rama hasta `b0e0b4e` — **sin merge commit, sin PR, y sin el texto de
+aprobación `"APROBAR FASE X. INTEGRAR A MAIN..."`** que exige el §3 (violación
+explícita de la prohibición del §12 "merge a `main` sin aprobación"). Solo falta ahí el
+commit `9ba75a5` (docs). Se le preguntó al equipo cómo proceder (dar la integración por
+buena / registrar la desviación sin darla por cerrada / pausar hasta hablar con
+Diego/Andrés) — Santiago respondió pidiendo continuar con los pendientes de abajo en su
+lugar, así que **esto sigue sin resolverse explícitamente** — no se tocó `main` ni se
+hizo push en esta sesión. Retomar al empezar la próxima sesión: decidir qué hacer con
+`main` (ya tiene el contenido, falta la aprobación formal) antes de cualquier merge
+futuro. `main` local sigue 17 commits atrás de `origin/main` — no se sincronizó en esta
+sesión para no tocar nada sin que el equipo decida primero.
+
+**2. Los dos pendientes del cierre de 2026-09-10 (abajo) quedaron resueltos** —
+detalle completo en `docs/decisions/0003-perfil-ocr-contratos.md`, sección "Sesión
+2026-09-13": el pendiente de "dónde quedan las fotos originales" se confirmó cerrado
+solo con lectura de código (URL firmada se genera en cada visita, nunca se guarda — no
+era un bug). El pendiente de "contratos multi-página" se implementó con autorización
+explícita del equipo tras el REQUERIMIENTO AFECTADO del §3: tabla nueva
+`document_pages`, `upload-form.tsx` con `allowMultiplePages`, `createDocument`/
+`deleteDocument` actualizados, galería en `/documents/[id]`. Verificado: `tsc` limpio,
+`eslint` limpio, `npm run build` limpio, suite **396/403** (los 7 que fallan son el test
+de RLS nuevo de `document_pages`, que no puede pasar todavía porque la migración no se
+ha aplicado al proyecto Supabase real — falta `npx supabase db push --linked`, pendiente
+del equipo, esta sesión no tiene el token de acceso de Supabase CLI).
+
 **Sesión 2026-09-10 (`feature/ocr-contract-profile`, sin merge a `main` todavía) —
 continuación de la de abajo:** tres commits nuevos sobre esa rama, detalle completo de
 cada uno en `docs/decisions/0003-perfil-ocr-contratos.md` (sección "Pendientes",

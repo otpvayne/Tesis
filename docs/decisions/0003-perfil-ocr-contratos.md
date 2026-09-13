@@ -244,3 +244,51 @@ sesión — documentar, no implementar todavía:**
 - Sin dataset de contratos reales, la calidad real de `extractContractFields` es
   desconocida hasta que el equipo pruebe con contratos reales de Mansor -- mismo
   patrón de honestidad que el resto del proyecto (no se afirma precisión sin medir).
+
+## Sesión 2026-09-13 -- cierre de los dos pendientes de arriba
+
+**Pendiente 2 (dónde quedan las fotos originales) -- cerrado, solo con lectura de
+código, sin hacer falta navegador:** `src/app/(dashboard)/documents/[id]/page.tsx`
+genera la URL firmada **en cada visita a la página** (`createSignedUrl`, TTL 5 min),
+nunca la guarda -- el objeto en Storage no expira, solo el link. Ver una foto original
+mucho después de subirla ya funcionaba por diseño, para facturas y para contratos de
+una sola foto. No era un bug.
+
+**Pendiente 1 (contratos multi-página) -- implementado, con autorización explícita del
+equipo tras reportar REQUERIMIENTO AFECTADO (`CLAUDE.md` §3):**
+
+- Tabla nueva `document_pages` (`supabase/migrations/20260913090000_create_document_pages.sql`):
+  `document_id` (FK a `documents`, cascade), `page_number` (`>= 2`, único por
+  documento), `file_path`. RLS con el mismo patrón que `ocr_results` (resuelto vía el
+  documento dueño, no una columna propia). `documents.original_file_path` **no cambió**
+  -- sigue siendo la portada/página 1, cero migración de datos, facturas sin cambios de
+  comportamiento.
+- `upload-form.tsx`: nuevo prop `allowMultiplePages` (solo `true` en `/contracts/new`).
+  `selectedFile: File | null` pasó a `selectedFiles: File[]`; para contratos se puede
+  agregar otra página (cámara o archivo) sin perder las ya confirmadas, y quitar una
+  página individual antes de subir. Facturas siguen igual: una sola foto, "Elegir otra
+  imagen" sigue reemplazando.
+- `createDocument` (Server Action): lee `formData.getAll("file")` en vez de `.get(...)`,
+  sube la primera como portada (como siempre) y el resto a `document_pages` en la misma
+  ruta del bucket (`page-{n}.{extension}`). `deleteDocument` ahora también borra los
+  objetos de Storage de las páginas (la fila cae por `on delete cascade`, el objeto en
+  Storage no).
+- `/documents/[id]`: si el documento tiene páginas adicionales, se muestran en una
+  galería, cada una con su propia URL firmada generada en la misma visita (mismo
+  patrón que la portada).
+- Test de integración nuevo `tests/integration/document-pages-rls.test.ts` (mismo
+  patrón que `document-validations-rls.test.ts`): aislamiento por dueño, admin ve todo,
+  unique constraint de `page_number`, `page_number < 2` rechazado, cascada al borrar el
+  documento. **No pasa todavía contra el proyecto Supabase real** -- la migración no se
+  ha aplicado ahí (`npx supabase db push --linked`, ver `docs/DEPLOYMENT.md`); esta
+  sesión no tiene el `SUPABASE_ACCESS_TOKEN` para hacerlo. Queda para el equipo antes de
+  dar este test por verificado. El resto de la suite sigue en verde: **396/403**, los 7
+  que fallan son justamente estos (error `PGRST205`, tabla no encontrada -- no es un bug
+  de código).
+- Verificado en esta sesión: `npx tsc --noEmit` limpio, `npx eslint .` limpio,
+  `npm run build` limpio. RF-001 (matriz de trazabilidad) y `CLAUDE.md` actualizados en
+  el mismo cambio.
+- **Sin resolver todavía (fuera de alcance de este cambio, a propósito):** el OCR de
+  contratos sigue corriendo solo sobre la portada. Correr Tesseract.js sobre cada página
+  y fusionar los campos extraídos es una decisión aparte -- mezclarla aquí habría hecho
+  el cambio más grande de lo que se autorizó.
