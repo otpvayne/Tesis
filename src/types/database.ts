@@ -81,6 +81,38 @@ export type Database = {
           },
         ]
       }
+      document_pages: {
+        Row: {
+          created_at: string
+          document_id: string
+          file_path: string
+          id: string
+          page_number: number
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          file_path: string
+          id?: string
+          page_number: number
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          file_path?: string
+          id?: string
+          page_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_pages_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_validations: {
         Row: {
           document_id: string
