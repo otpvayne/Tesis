@@ -58,6 +58,28 @@ export default async function DocumentDetailPage({
     .from(DOCUMENTS_STORAGE_BUCKET)
     .createSignedUrl(doc.original_file_path, SIGNED_URL_TTL_SECONDS);
 
+  // Páginas adicionales (contratos multi-página, ver
+  // supabase/migrations/20260913090000_create_document_pages.sql) --
+  // vacío para facturas y para contratos de una sola foto. URL firmada
+  // generada aquí mismo, igual que la portada: no se guarda, se regenera
+  // en cada visita a esta página.
+  const { data: extraPages } = await supabase
+    .from("document_pages")
+    .select("page_number, file_path")
+    .eq("document_id", doc.id)
+    .order("page_number", { ascending: true });
+
+  const extraPageSignedUrls = extraPages
+    ? await Promise.all(
+        extraPages.map(async (page) => {
+          const { data } = await supabase.storage
+            .from(DOCUMENTS_STORAGE_BUCKET)
+            .createSignedUrl(page.file_path, SIGNED_URL_TTL_SECONDS);
+          return { pageNumber: page.page_number, signedUrl: data?.signedUrl ?? null };
+        }),
+      )
+    : [];
+
   // Último resultado OCR (Fase 4e) -- puede haber varios por reintentos;
   // solo se muestra el más reciente. ocr_results es histórico inmutable
   // (sin UPDATE/DELETE), así que "el más reciente" es siempre el actual.
@@ -132,6 +154,31 @@ export default async function DocumentDetailPage({
           className="w-full rounded-md border border-neutral-200 dark:border-neutral-800"
         />
       )}
+
+      {extraPageSignedUrls.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+            Páginas adicionales ({extraPageSignedUrls.length})
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {extraPageSignedUrls.map((page) =>
+              page.signedUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- URL firmada temporal, mismo caso que la portada arriba
+                <img
+                  key={page.pageNumber}
+                  src={page.signedUrl}
+                  alt={`Página ${page.pageNumber}`}
+                  className="w-full rounded-md border border-neutral-200 dark:border-neutral-800"
+                />
+              ) : (
+                <p key={page.pageNumber} className="text-sm text-critical-600 dark:text-critical-400">
+                  No se pudo generar la vista de la página {page.pageNumber}.
+                </p>
+              ),
+            )}
+          </div>
+        </div>
+      ) : null}
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
         <dt className="text-neutral-500 dark:text-neutral-400">Tipo</dt>

@@ -8,9 +8,10 @@ export default function NewContractPage() {
       documentTypeLabel="Contrato"
       title="Subir contrato"
       description="Sube un contrato para que el sistema ejecute OCR automáticamente"
-      bullets={["Seleccionar archivo JPG o PNG", "Sistema procesa y extrae campos automáticamente", "Validar datos en siguiente paso"]}
-      tip="Fotos claras = mejor OCR. Iluminación natural, ángulo frontal."
+      bullets={["Puedes subir varias fotos si el contrato tiene más de una página", "Sistema procesa y extrae campos automáticamente", "Validar datos en siguiente paso"]}
+      tip="Fotos claras = mejor OCR. Iluminación natural, ángulo frontal. Incluye las páginas donde estén el valor, la vigencia y la firma."
       submitLabel="Subir contrato"
+      allowMultiplePages
     />
   );
 }

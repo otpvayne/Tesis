@@ -24,6 +24,16 @@ export interface UploadDocumentFormProps {
   bullets: string[];
   tip: string;
   submitLabel: string;
+  /**
+   * Permite asociar varias fotos al mismo documento (páginas 2+ van a
+   * `document_pages`, ver `supabase/migrations/20260913090000_create_document_pages.sql`).
+   * Solo `contract_es` lo necesita hoy -- un contrato real suele tener
+   * campos obligatorios de RF-003 (Vigencia, Valor total, etc.) fuera de la
+   * portada. `invoice_es` sigue siendo una sola foto, sin cambios de
+   * comportamiento. Ver REQUERIMIENTO AFECTADO en el cierre de sesión
+   * 2026-09-10 de `docs/decisions/0003-perfil-ocr-contratos.md`.
+   */
+  allowMultiplePages?: boolean;
 }
 
 /**
@@ -33,7 +43,7 @@ export interface UploadDocumentFormProps {
  * `contract_es` sin duplicar la lógica de cámara/permisos/fallback (Fase 3),
  * ver `docs/decisions/0003-perfil-ocr-contratos.md`.
  */
-export function UploadDocumentForm({ documentType, documentTypeLabel, title, description, bullets, tip, submitLabel }: UploadDocumentFormProps) {
+export function UploadDocumentForm({ documentType, documentTypeLabel, title, description, bullets, tip, submitLabel, allowMultiplePages = false }: UploadDocumentFormProps) {
   const [state, formAction, pending] = useActionState(createDocument, createDocumentInitialState);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,8 +57,21 @@ export function UploadDocumentForm({ documentType, documentTypeLabel, title, des
   // tiene sentido seguir ofreciendo "Usar cámara" en esta sesión.
   const [cameraFailed, setCameraFailed] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const cameraAvailable = cameraSupported && !cameraFailed;
+
+  // El input real (name="file") es la única fuente que lee `createDocument`
+  // (formData.getAll("file")) -- para fotos que llegan por cámara (no por
+  // el <input> nativo) hay que reflejarlas ahí a mano vía DataTransfer.
+  // Centralizado en un efecto (en vez de repetirlo en cada handler) para
+  // que cámara y selección manual con `allowMultiplePages` (que acumula en
+  // vez de reemplazar) queden siempre sincronizadas con `selectedFiles`.
+  useEffect(() => {
+    if (!fileInputRef.current) return;
+    const dataTransfer = new DataTransfer();
+    selectedFiles.forEach((file) => dataTransfer.items.add(file));
+    fileInputRef.current.files = dataTransfer.files;
+  }, [selectedFiles]);
 
   // Chequeo de soporte solo en el cliente: getUserMedia/isSecureContext/
   // userAgentData no existen durante el render en servidor, así que no se
@@ -72,15 +95,7 @@ export function UploadDocumentForm({ documentType, documentTypeLabel, title, des
   }, []);
 
   function handleCameraConfirm(file: File) {
-    // El input de abajo (name="file") sigue siendo la única fuente que lee
-    // createDocument — la cámara solo le asigna su captura, sin duplicar
-    // lógica de subida/validación ya existente desde Fase 2.
-    if (fileInputRef.current) {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      fileInputRef.current.files = dataTransfer.files;
-    }
-    setSelectedFile(file);
+    setSelectedFiles((prev) => (allowMultiplePages ? [...prev, file] : [file]));
     setShowCamera(false);
   }
 
@@ -90,19 +105,25 @@ export function UploadDocumentForm({ documentType, documentTypeLabel, title, des
   }
 
   function handleRetake() {
-    setSelectedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setSelectedFiles([]);
+    setShowCamera(true);
+  }
+
+  // Solo para `allowMultiplePages`: reabre la cámara SIN limpiar las
+  // páginas ya confirmadas -- a diferencia de `handleRetake` (invoice_es),
+  // que reemplaza la única foto existente.
+  function handleAddAnotherPage() {
     setShowCamera(true);
   }
 
   function handleManualFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    setSelectedFile(event.target.files?.[0] ?? null);
+    const picked = Array.from(event.target.files ?? []);
+    setSelectedFiles((prev) => (allowMultiplePages ? [...prev, ...picked] : picked.slice(0, 1)));
     setShowCamera(false);
   }
 
   function handleUseCamera() {
-    setSelectedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setSelectedFiles([]);
     setShowCamera(true);
   }
 
@@ -110,12 +131,16 @@ export function UploadDocumentForm({ documentType, documentTypeLabel, title, des
     fileInputRef.current?.click();
   }
 
+  function handleRemoveFile(index: number) {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
   // El <input> real (name="file") SIEMPRE está montado en la misma
   // posición del árbol — solo cambia su className entre visible/oculto.
   // Nunca se desmonta condicionalmente: si se hiciera, fileInputRef.current
   // sería null justo cuando handleCameraConfirm necesita asignarle el
   // archivo capturado.
-  const showFallbackInputVisible = !showCamera && !selectedFile && !cameraAvailable;
+  const showFallbackInputVisible = !showCamera && selectedFiles.length === 0 && !cameraAvailable;
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6">
@@ -138,19 +163,32 @@ export function UploadDocumentForm({ documentType, documentTypeLabel, title, des
 
           {showCamera ? (
             <CameraCapture onConfirm={handleCameraConfirm} onCancel={handleCameraUnavailable} />
-          ) : selectedFile ? (
+          ) : selectedFiles.length > 0 ? (
             <div className="flex flex-col gap-2 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
-              <p className="truncate text-sm text-neutral-600 dark:text-neutral-400">
-                {selectedFile.name}
-              </p>
+              {selectedFiles.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm text-neutral-600 dark:text-neutral-400">
+                    {allowMultiplePages ? `Página ${index + 1}: ${file.name}` : file.name}
+                  </p>
+                  {allowMultiplePages && selectedFiles.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFile(index)}
+                      className="shrink-0 text-xs font-medium text-red-600 dark:text-red-400"
+                    >
+                      Quitar
+                    </button>
+                  ) : null}
+                </div>
+              ))}
               <div className="flex gap-2">
                 {cameraAvailable ? (
                   <button
                     type="button"
-                    onClick={handleRetake}
+                    onClick={allowMultiplePages ? handleAddAnotherPage : handleRetake}
                     className="flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200"
                   >
-                    Repetir foto
+                    {allowMultiplePages ? "Agregar otra página" : "Repetir foto"}
                   </button>
                 ) : null}
                 <button
@@ -158,7 +196,7 @@ export function UploadDocumentForm({ documentType, documentTypeLabel, title, des
                   onClick={handlePickDifferentFile}
                   className="flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200"
                 >
-                  Elegir otra imagen
+                  {allowMultiplePages ? "Agregar desde archivo" : "Elegir otra imagen"}
                 </button>
               </div>
             </div>
@@ -180,7 +218,8 @@ export function UploadDocumentForm({ documentType, documentTypeLabel, title, des
               name="file"
               accept="image/jpeg,image/png"
               capture="environment"
-              required={!selectedFile}
+              multiple={allowMultiplePages}
+              required={selectedFiles.length === 0}
               onChange={handleManualFileChange}
               className={
                 showFallbackInputVisible
@@ -201,7 +240,7 @@ export function UploadDocumentForm({ documentType, documentTypeLabel, title, des
 
         <button
           type="submit"
-          disabled={pending || !selectedFile}
+          disabled={pending || selectedFiles.length === 0}
           className="rounded-md bg-neutral-900 px-4 py-3 text-base font-medium text-white disabled:opacity-60 dark:bg-neutral-50 dark:text-neutral-900"
         >
           {pending ? "Subiendo..." : submitLabel}
