@@ -37,6 +37,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/reports", label: "Reportes" },
   { href: "/ocr-lab/preview", label: "OCR Lab: Preview" },
   { href: "/ocr-lab/train", label: "OCR Lab: Entrenar" },
+  { href: "/ocr-lab/tesseract-preview", label: "OCR Lab: Tesseract" },
 ];
 
 /** Coincidencia exacta primero; si no hay, el prefijo más específico (`/documents/abc123` resalta "Documentos", no confunde con "Nuevo documento"). */
