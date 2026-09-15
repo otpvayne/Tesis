@@ -301,6 +301,62 @@ desarrollo o herramientas de navegador en esta sesión (sección 11).
 
 ## 13. Estado actual
 
+**Sesión 2026-09-15 (`fix/ocr-money-table-header-contamination`, mismo día, segunda
+factura real) — cuarto bug real de parseo de montos + primera heurística de
+`Proveedor`:**
+
+Andrés mandó el texto OCR crudo de una SEGUNDA factura real (proveedor distinto) tras
+confirmar que el fix anterior (de más abajo) ya dejaba bien IVA y Valor: "ahora falta es
+valor total y el nombre de la empresa". Mismo método que la vez anterior: se simuló el
+algoritmo real contra el texto OCR crudo (nunca comiteado, solo en scratch) antes de
+tocar cualquier archivo del repo.
+
+*Bug de Total (variante nueva del mismo problema de fondo):* el código de producto de
+la primera fila de la tabla venía como `"VISP.001CU"` -- el `"001"` queda pegado a un
+PUNTO por un lado (no una letra, así que el lookbehind `(?<![A-Za-zÀ-ÿ])` del fix
+anterior no lo excluía) y a las letras `"CU"` por el otro lado. Fix: se agrega también
+`(?![A-Za-zÀ-ÿ])` (negative lookahead) al final de cada alternativa numérica de
+`MONEY_PATTERN` en `field-extraction-helpers.ts` -- ahora un candidato queda excluido si
+tiene una letra INMEDIATAMENTE ANTES **o** DESPUÉS, sin importar qué separador quede
+entre medio. Verificado con ambas facturas reales por simulación antes de aplicar el
+cambio: IVA/Valor/Total de la primera factura siguen dando 3.952/20.798/24.750, y los de
+la segunda pasan a dar 29.825/156.975/186.800 (antes de este fix, Total salía mal).
+
+*Heurística nueva de `Proveedor` ("línea arriba del NIT"), en `field-extraction.ts`:*
+en las DOS facturas reales de esta sesión, ninguna trae ninguna keyword de
+`PROVEEDOR_KEYWORDS` ("Proveedor:", "Emisor:", etc.), pero en ambas el nombre real de la
+empresa está en la línea INMEDIATAMENTE ARRIBA de su propio NIT (el primero que aparece
+en el documento -- el de Mansor como cliente aparece después, junto a la palabra
+"CLIENTE"). `findProveedorNearNit` camina hacia atrás desde esa línea (máximo 5, para no
+terminar leyendo el encabezado de otra sección) saltando líneas de puro relleno
+tributario (`isNoiseLine`, frases como "no somos...", "régimen...") o sin suficiente
+contenido, hasta encontrar una candidata real. Confidence 0.6 (entre la keyword
+explícita 0.9 y el fallback ciego 0.5) -- sigue siendo una heurística POSICIONAL, no una
+etiqueta confirmada. `trimAfterCompanySuffix` recorta el nombre justo después de un
+sufijo de razón social (SAS/LTDA/S.A./E.U.) cuando lo encuentra, pero lo deja intacto si
+no lo encuentra -- la segunda factura real trajo el sufijo mal reconocido por el OCR
+("S.A.S." salió como "5.A.S."), y en ese caso es mejor conservar el ruido visible que
+inventar un corte incorrecto.
+
+Se revisó también el pedido explícito de Andrés de agregar "TOTAL MENOS RETENCIONES" y
+"VALOR TOTAL" como variantes de la keyword de Total: no hizo falta ningún cambio en
+`TOTAL_KEYWORDS` -- ambas frases YA contienen la palabra "Total" con límite de palabra
+(`\b`), que es justo lo que `buildKeywordRegex` busca, así que ya matcheaban
+correctamente (confirmado con test manual antes de descartar el cambio).
+
+4 tests de regresión nuevos en `field-extraction.test.ts` (el bug de Total con
+estructura anonimizada de la segunda factura, la heurística de Proveedor con el mismo
+sufijo garbled "5.A.S.", y el ajuste de confidence 0.5→0.6 de un test preexistente que
+ahora dispara la heurística nueva sobre su propio fixture -- comportamiento correcto,
+no regresión). Verificado: `tsc`/`eslint` limpios (el único error de `tsc --noEmit`,
+`LayoutProps` en `src/app/layout.tsx`, es preexistente y no relacionado -- falta generar
+`.next/types` con un build, no lo toca nada de este cambio), 350/350 tests unitarios.
+
+**Pendiente:** la heurística de Proveedor sigue validada con solo DOS facturas reales.
+Pedido al equipo: seguir mandando facturas reales de proveedores distintos para
+confirmar que el patrón "nombre arriba del NIT" se sostiene en general y no es
+coincidencia de estos dos casos.
+
 **Sesión 2026-09-15 (`fix/ocr-money-table-header-contamination`) — tercer bug real de
 parseo de montos, encontrado con una factura real de un proveedor de Mansor:**
 
@@ -333,16 +389,10 @@ documento real (§12). Verificado: `tsc`/`eslint` limpios, 347/347 tests unitari
 (rama sin RF-008 todavía, que vive aparte en `feature/financial-summary-reports`, sin
 mergear a `main`).
 
-**Pendiente, explícitamente fuera de esta sesión:** Andrés también reportó que
-`Proveedor` sigue extrayendo mal (esta misma factura no tiene ninguna keyword de
-`PROVEEDOR_KEYWORDS` -- el nombre de la empresa aparece como texto libre al inicio del
-documento, sin ninguna etiqueta "Proveedor:"/"Emisor:" que la heurística actual pueda
-usar). A diferencia del bug de montos, esto no tiene una causa puntual corregible con
-un ajuste de regex -- necesita una heurística nueva (p. ej. buscar líneas con sufijos
-de razón social como "SAS"/"LTDA", o cerca del primer NIT del documento) que se
-diseñe y verifique con más de una factura real, para no sobreajustar a un solo caso.
-Pedido al equipo: mandar 2-3 facturas reales más (de proveedores distintos) antes de
-tocar esa heurística.
+**Nota (actualizado el mismo día, ver la entrada de arriba):** el pendiente de
+`Proveedor` que se dejó anotado aquí ya se abordó en esta misma sesión, en cuanto
+Andrés mandó una segunda factura real que confirmó el mismo patrón ("nombre arriba del
+NIT") -- ver la entrada más reciente arriba (`findProveedorNearNit`).
 
 **Sesión 2026-09-13 (`feature/ocr-contract-profile`) — dos hallazgos importantes, sin
 resolver el primero todavía:**

@@ -184,7 +184,12 @@ export function extractStringField(ocrResult: OCRResult, pattern: RegExp, keywor
  *    producto "E141") tampoco es un monto -- es un dígito que quedó
  *    "adentro" de otro token. Se agrega `(?<![A-Za-zÀ-ÿ])` justo antes de
  *    cada alternativa numérica (no antes del `$`/espacio opcional, que sí
- *    puede preceder un monto real) para excluirlo.
+ *    puede preceder un monto real) para excluirlo. El mismo problema
+ *    existe del otro lado: un código como "VISP.001CU" (2026-09-15,
+ *    segunda factura real -- la letra que precede a "001" es un punto, no
+ *    una letra, así que solo la regla anterior no alcanza) deja "001"
+ *    SEGUIDO de una letra ("CU"), algo que un monto real nunca tiene --
+ *    se agrega también `(?![A-Za-zÀ-ÿ])` al final de cada alternativa.
  *
  * **Tercer detalle, mismo caso real:** la sección de totales de esa misma
  * factura trae "IVA 3,952" con COMA en vez de punto -- el OCR confundió
@@ -198,7 +203,7 @@ export function extractStringField(ocrResult: OCRResult, pattern: RegExp, keywor
  * importa cuál de los dos glifos reconoció el OCR.
  */
 const MONEY_PATTERN =
-  /\$?\s?(?<![A-Za-zÀ-ÿ])\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\$?\s?(?<![A-Za-zÀ-ÿ])\d{3,}(?:[.,]\d{1,2})?/g;
+  /\$?\s?(?<![A-Za-zÀ-ÿ])\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?(?![A-Za-zÀ-ÿ])|\$?\s?(?<![A-Za-zÀ-ÿ])\d{3,}(?:[.,]\d{1,2})?(?![A-Za-zÀ-ÿ])/g;
 
 /**
  * Convierte el texto ya emparejado por `MONEY_PATTERN` a un número real:

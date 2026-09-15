@@ -150,11 +150,17 @@ crecimiento, no una confirmación de que el rendimiento está resuelto.
 2. ~~**NIT con dígito de verificación separado por espacio**~~ — **RESUELTO** (misma
    sesión/prueba): Tesseract.js a veces reconoce el guión del NIT como un espacio
    (`900341337 4` en vez de `900341337-4`); `NIT_PATTERN` ahora acepta ambas formas.
-3. **Proveedor sin heurística robusta**: a diferencia de los otros 5 campos, no hay un
-   patrón estructural — depende de que exista una keyword (`Proveedor:`, `Emisor:`)
-   o, en su defecto, de que la primera línea reconocida sea efectivamente el nombre
-   del proveedor (falla si el encabezado real es un logo/membrete sin texto, o si la
-   primera línea reconocible es otra cosa).
+3. ~~**Proveedor sin heurística robusta**~~ — **PARCIALMENTE RESUELTO** (2026-09-15,
+   dos facturas reales de proveedores de Mansor, ninguna con keyword de
+   `PROVEEDOR_KEYWORDS`): antes dependía solo de una keyword explícita (`Proveedor:`,
+   `Emisor:`) o, en su defecto, de que la primera línea reconocida fuera el nombre
+   (fallaba casi siempre, agarraba el título del documento). Ahora, si no hay
+   keyword, `findProveedorNearNit` (`field-extraction.ts`) prueba primero la línea
+   inmediatamente arriba del primer NIT del documento (patrón observado en las dos
+   facturas reales) antes de caer al fallback ciego — confidence 0.6, intermedia
+   entre la keyword explícita (0.9) y el fallback ciego (0.5). Sigue siendo una
+   heurística posicional sin confirmar con más de dos casos; ver `CLAUDE.md` §13
+   para el pedido al equipo de más facturas reales.
 4. **Sin heurística de relación numérica** (Total/Valor/IVA) para el caso sin ninguna
    keyword — ver §4.
 5. **Solo facturas en español, formato relativamente estándar** — heredado de
@@ -167,7 +173,14 @@ crecimiento, no una confirmación de que el rendimiento está resuelto.
   constante propia al inicio de `field-extraction.ts`, no repartido.
 - **Agregar una keyword**: añadir el string al arreglo `*_KEYWORDS` correspondiente
   (case-insensitive, con límite de palabra automático).
-- **Ajustar las confidences**: los 3 niveles (0.95/0.7/0.5) y `ADJACENT_WINDOW` (15
-  caracteres) son puntos de partida documentados, no medidos contra facturas reales
-  — recalibrar con el conjunto `validation` cuando exista (nunca con `test`), igual
-  que el resto de parámetros de `OCR_CONFIG`/`OCR_TRAINING_CONFIG`.
+- **Ajustar las confidences**: los 3 niveles (0.95/0.7/0.5) son puntos de partida
+  documentados, no medidos contra facturas reales — recalibrar con el conjunto
+  `validation` cuando exista (nunca con `test`), igual que el resto de parámetros de
+  `OCR_CONFIG`/`OCR_TRAINING_CONFIG`. `ADJACENT_WINDOW` subió de 15 a 20 caracteres
+  el 2026-09-15 (etiquetas reales largas como "TOTAL DE LA OPERACIÓN" lo necesitan).
+- **Excluir dígitos embebidos en otro token** (códigos de producto, etc.) sin tocar
+  `ADJACENT_WINDOW`: `MONEY_PATTERN` ya excluye por lookbehind/lookahead un candidato
+  pegado a una letra por cualquiera de los dos lados (ver el comentario largo encima
+  de esa constante en `field-extraction-helpers.ts` — dos bugs reales distintos, uno
+  por cada lado). Si aparece un caso nuevo (pegado a otro símbolo, no letra ni
+  dígito), extender esas mismas exclusiones en vez de tocar el mínimo de dígitos.

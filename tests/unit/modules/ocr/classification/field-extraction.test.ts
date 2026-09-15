@@ -98,8 +98,20 @@ describe("extractFields", () => {
     expect(fields.proveedor).toMatchObject({ value: "Acme Suministros SAS", confidence: 0.9 });
   });
 
-  it("proveedor: sin keyword, usa la primera línea con letras como conjetura (confidence baja)", () => {
+  it("proveedor: sin keyword, pero con una línea justo arriba del NIT -> usa esa línea (heurística posicional, confidence media)", () => {
+    // Antes (sin la heurística de "línea arriba del NIT", agregada
+    // 2026-09-15 con dos facturas reales) este mismo fixture caía al
+    // fallback ciego "primera línea con letras" y daba confidence 0.5 --
+    // ahora hay una explicación mejor (la línea SÍ está justo arriba del
+    // NIT, patrón real observado), así que sube a 0.6. El valor no
+    // cambia porque en este caso ambas heurísticas eligen la misma línea.
     const ocrResult = makeOCRResult(["Acme Suministros SAS", "NIT 900123456"]);
+    const fields = extractFields(ocrResult);
+    expect(fields.proveedor).toMatchObject({ value: "Acme Suministros SAS", confidence: 0.6 });
+  });
+
+  it("proveedor: sin keyword y sin NIT en el texto -> cae al fallback ciego, primera línea con letras (confidence baja)", () => {
+    const ocrResult = makeOCRResult(["Acme Suministros SAS", "Documento sin NIT reconocible"]);
     const fields = extractFields(ocrResult);
     expect(fields.proveedor).toMatchObject({ value: "Acme Suministros SAS", confidence: 0.5 });
   });
@@ -200,6 +212,57 @@ describe("extractFields", () => {
     const ocrResult = makeOCRResult(["IVA 3,952"]);
     const fields = extractFields(ocrResult);
     expect(fields.iva).toMatchObject({ value: 3952, confidence: 0.95 });
+  });
+
+  /**
+   * Segundo bug real, mismo día (2026-09-15), segunda factura real de otro
+   * proveedor de Mansor (Andrés: "ya casi ahora iva y valor lo reconoce,
+   * ahora falta es valor total"): el código de producto de la primera fila
+   * de la tabla venía como "VISP.001CU" -- el "001" queda pegado a un
+   * PUNTO por un lado (no una letra, por eso el primer fix de
+   * `field-extraction-helpers.ts` no alcanzaba) y a las letras "CU" por el
+   * otro. Reproduce la estructura esencial (NIT + encabezado con "Total" +
+   * una fila con ese patrón de código + sección de totales), con nombre de
+   * empresa/NIT/código de producto ficticios.
+   */
+  it("no confunde un código de producto con dígitos pegados a un punto y a letras (p. ej. 'COD.001XY') con un monto, aunque esté en la fila justo debajo del encabezado 'Total'", () => {
+    const ocrResult = makeOCRResult([
+      "NIT 900111222-3",
+      "Item Código Descripción Cantidad U Medida Valor Unitario IVA Total",
+      "1 COD.001XY HERRAMIENTA EJEMPLO UNO 1,00 Und 127.731 19% 127.731",
+      "2 701 HERRAMIENTA EJEMPLO DOS 1,00 Und 10.504 19% 10.504",
+      "SUBTOTAL 156.975",
+      "IVA 29.825",
+      "TOTAL DE LA OPERACION 186.800",
+    ]);
+
+    const fields = extractFields(ocrResult);
+
+    expect(fields.iva).toMatchObject({ value: 29825, confidence: 0.95 });
+    expect(fields.valor).toMatchObject({ value: 156975, confidence: 0.95 });
+    expect(fields.total).toMatchObject({ value: 186800, confidence: 0.95 });
+  });
+
+  /**
+   * Heurística "línea arriba del NIT" (ver JSDoc de `findProveedorNearNit`)
+   * contra la estructura de la segunda factura real: el nombre de la
+   * empresa está justo arriba del NIT, pero el sufijo de razón social
+   * salió del OCR como "5.A.S." (el "5" en vez de una "S") -- el patrón de
+   * sufijo no lo reconoce, así que la línea NO debe recortarse: mejor
+   * conservar el ruido visible que inventar un corte incorrecto.
+   */
+  it("proveedor: heurística posicional tolera un sufijo de razón social mal reconocido por el OCR ('S.A.S.' -> '5.A.S.') sin recortar la línea", () => {
+    const ocrResult = makeOCRResult([
+      "» DISTRIBUIDORA EJEMPLO 5.A.S. ACME",
+      "Nit. 900.564.101-0",
+      "Responsable del IVA No somos Agentes de Retención de IVA",
+      "No somos Grandes Contribuyentes Ni Autorretenedores",
+    ]);
+
+    const fields = extractFields(ocrResult);
+
+    expect(fields.proveedor).toMatchObject({ value: "» DISTRIBUIDORA EJEMPLO 5.A.S. ACME", confidence: 0.6 });
+    expect(fields.nit).toMatchObject({ value: "900.564.101-0", confidence: 0.95 });
   });
 
   it("sourceRegion apunta a la línea correcta donde aparece el campo", () => {
