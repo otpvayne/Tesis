@@ -123,14 +123,83 @@ describe("extractFields", () => {
   });
 
   it("campo con patrón pero sin keyword en absoluto -> confidence baja (0.5), toma el primer candidato", () => {
-    const ocrResult = makeOCRResult(["algo 55.00 y despues 99.00, sin ninguna palabra clave"]);
+    // "550"/"990" (no "55.00"/"99.00" como antes 2026-09-15): el mínimo de
+    // 3 dígitos que ahora exige la alternativa sin separador (ver
+    // MONEY_PATTERN) haría que "55"/"99" ya no matcheen en absoluto -- este
+    // test no busca probar formato de montos, solo la lógica de "sin
+    // keyword, toma el primer candidato", así que se usan números que sí
+    // siguen siendo candidatos válidos.
+    const ocrResult = makeOCRResult(["algo 550 y despues 990, sin ninguna palabra clave"]);
     const fields = extractFields(ocrResult);
     // ninguna keyword de iva/valor/total aparece -> los 3 campos caen al
-    // mismo primer candidato (55.00), confidence 0.5 -- limitación
+    // mismo primer candidato (550), confidence 0.5 -- limitación
     // documentada: sin keywords, no hay forma de distinguir los campos.
-    expect(fields.iva).toMatchObject({ value: 55.0, confidence: 0.5 });
-    expect(fields.valor).toMatchObject({ value: 55.0, confidence: 0.5 });
-    expect(fields.total).toMatchObject({ value: 55.0, confidence: 0.5 });
+    expect(fields.iva).toMatchObject({ value: 550, confidence: 0.5 });
+    expect(fields.valor).toMatchObject({ value: 550, confidence: 0.5 });
+    expect(fields.total).toMatchObject({ value: 550, confidence: 0.5 });
+  });
+
+  /**
+   * Bug real reportado por Andrés (2026-09-15) sobre una factura real de un
+   * proveedor de Mansor: IVA, Valor y Total salían todos en "1". Causa: el
+   * encabezado de la tabla de ítems repite literalmente las palabras que
+   * se buscan ("... | IVA | Valor IVA Total"), y la fila 1 empieza justo
+   * después con su NÚMERO DE FILA ("1 P001 [HERRAMIENTA UNO...") -- ese "1"
+   * quedaba pegado al keyword del encabezado y ganaba sobre el valor real,
+   * que está más abajo en la sección de totales. Reproduce la ESTRUCTURA
+   * real (recortada a lo esencial: encabezado + 4 filas + totales) tal como
+   * la vio Andrés, con nombre de empresa/NIT/códigos de producto
+   * reemplazados por datos ficticios (nunca se comitea el texto OCR real de
+   * un documento real, `CLAUDE.md` §12) -- incluida la fila con "3,952": el
+   * OCR confundió el punto de miles con una coma ahí mismo, mientras el
+   * resto de la misma factura sí usa punto ("20.798", "24.750"), así que el
+   * parser tiene que aceptar cualquiera de los dos como separador de miles.
+   */
+  it("factura real (estructura anonimizada): no confunde el número de fila del encabezado de la tabla con IVA/Valor/Total, y tolera que el OCR confunda '.'/',' como separador de miles", () => {
+    const ocrResult = makeOCRResult([
+      "FERRETERIA EJEMPLO SAS IVA Régimen Común No somos Agentes de Retención de IVA",
+      "No somos Grandes Contribuyentes",
+      "Nit 900123456",
+      "Item | Código | Descripción | Cantidad | U Medida | Valor Unitario | IVA | Valor IVA Total",
+      '1 P001 [HERRAMIENTA UNO 1 Und. 8.500 | 19% 1.357 8.500',
+      '2 P002 [HERRAMIENTA DOS 1 "Und. 6.000| 19% 958 6.000',
+      '3 P003 [HERRAMIENTA TRES 50 Und. 125 19% 20 6250',
+      '4 P004 [HERRAMIENTA CUATRO 1 Und. 4.000 | 19% 639 4.000',
+      "Valor en Letras VEINTICUATRO MIL SETECIENTOS CINCUENTA PESOS MICTE",
+      "Elena SUBTOTAL 20.798 RETEFUENTE [1",
+      "E IVA 3,952 RETEICA [1]",
+      "Firma Responsable EZ TOTAL DE LA OPERACIÓN 24.750 TOTAL MENOS RETENCIONES 24.750",
+    ]);
+
+    const fields = extractFields(ocrResult);
+
+    expect(fields.iva).toMatchObject({ value: 3952, confidence: 0.95 });
+    expect(fields.valor).toMatchObject({ value: 20798, confidence: 0.95 });
+    expect(fields.total).toMatchObject({ value: 24750, confidence: 0.95 });
+    // 20.798 (subtotal) + 3.952 (IVA) = 24.750 (total) -- coherencia real
+    // de la propia factura, no solo "algún número parseó bien".
+    expect(fields.valor.value! + fields.iva.value!).toBe(fields.total.value);
+  });
+
+  it("no confunde un código de producto alfanumérico (p. ej. 'E141') con un monto, aunque esté pegado al keyword", () => {
+    const ocrResult = makeOCRResult(["Total E141"]);
+    const fields = extractFields(ocrResult);
+    // "E141" no es un monto -- ni siquiera debería contarse como candidato
+    // (el "141" está pegado a una letra), así que el campo queda sin valor
+    // en vez de inventar 141.
+    expect(fields.total).toEqual({ value: null, confidence: 0, sourceRegion: null });
+  });
+
+  it("no confunde el número de fila de una tabla ('1', '2'...) con un monto, aunque esté justo después del keyword", () => {
+    const ocrResult = makeOCRResult(["Valor Total", "1 primer ítem", "2 segundo ítem", "Total real: 45.678"]);
+    const fields = extractFields(ocrResult);
+    expect(fields.total).toMatchObject({ value: 45678 });
+  });
+
+  it("acepta coma como separador de MILES cuando el OCR confunde el glifo con el punto (3 dígitos exactos -- no un decimal real)", () => {
+    const ocrResult = makeOCRResult(["IVA 3,952"]);
+    const fields = extractFields(ocrResult);
+    expect(fields.iva).toMatchObject({ value: 3952, confidence: 0.95 });
   });
 
   it("sourceRegion apunta a la línea correcta donde aparece el campo", () => {

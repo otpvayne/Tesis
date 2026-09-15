@@ -301,6 +301,49 @@ desarrollo o herramientas de navegador en esta sesión (sección 11).
 
 ## 13. Estado actual
 
+**Sesión 2026-09-15 (`fix/ocr-money-table-header-contamination`) — tercer bug real de
+parseo de montos, encontrado con una factura real de un proveedor de Mansor:**
+
+Andrés reportó que IVA/Valor/Total volvían a salir en "1" en algunas facturas (no
+todas) -- root cause, confirmado simulando el algoritmo contra el texto OCR real antes
+de tocar código: el encabezado de la tabla de ítems repite literalmente las mismas
+palabras que se buscan como keyword (`"... | IVA | Valor IVA Total"`), y la fila 1
+empieza justo después con su NÚMERO DE FILA (`"1 <código> [<descripción>..."`) -- ese
+"1" quedaba pegado (`ADJACENT_WINDOW`) al keyword del encabezado y ganaba sobre el
+valor real, que está más abajo en la sección de totales. Mismo síntoma que el segundo
+fix de "sesión 2026-09-10" de más abajo (contaminación desde la tabla), pero causa
+distinta -- no es el mismo bug recurrente, es una variante nueva (esta vez viene del
+ENCABEZADO de la tabla, no de una fila de datos).
+
+Dos causas concretas, en `field-extraction-helpers.ts`: (1) un candidato de 1-2 dígitos
+sueltos (número de fila, cantidad) nunca es un monto real -- el mínimo de la
+alternativa sin separador de miles sube de `\d+` a `\d{3,}`; (2) un candidato pegado a
+una letra (`"141"` dentro del código de producto `"E141"`) tampoco es un monto -- se
+agrega `(?<![A-Za-zÀ-ÿ])` antes de cada alternativa numérica. Además, la misma factura
+traía `"IVA 3,952"` con COMA donde el resto de la factura usa PUNTO (glifo confundido
+por el OCR) -- ahora se acepta cualquiera de los dos como separador de miles cuando
+agrupa exactamente 3 dígitos. `ADJACENT_WINDOW` sube de 15 a 20 (la etiqueta real
+`"TOTAL DE LA OPERACIÓN"` es más larga que `"Total"` solo, así que sin este ajuste el
+campo `total` bajaba a confidence 0.7 aunque igual acertara el valor).
+
+Test de regresión nuevo en `field-extraction.test.ts` reproduce la ESTRUCTURA real
+(encabezado + 4 filas + totales con el error de coma) con nombre de
+empresa/NIT/códigos de producto ficticios -- nunca se comitea el texto OCR real de un
+documento real (§12). Verificado: `tsc`/`eslint` limpios, 347/347 tests unitarios
+(rama sin RF-008 todavía, que vive aparte en `feature/financial-summary-reports`, sin
+mergear a `main`).
+
+**Pendiente, explícitamente fuera de esta sesión:** Andrés también reportó que
+`Proveedor` sigue extrayendo mal (esta misma factura no tiene ninguna keyword de
+`PROVEEDOR_KEYWORDS` -- el nombre de la empresa aparece como texto libre al inicio del
+documento, sin ninguna etiqueta "Proveedor:"/"Emisor:" que la heurística actual pueda
+usar). A diferencia del bug de montos, esto no tiene una causa puntual corregible con
+un ajuste de regex -- necesita una heurística nueva (p. ej. buscar líneas con sufijos
+de razón social como "SAS"/"LTDA", o cerca del primer NIT del documento) que se
+diseñe y verifique con más de una factura real, para no sobreajustar a un solo caso.
+Pedido al equipo: mandar 2-3 facturas reales más (de proveedores distintos) antes de
+tocar esa heurística.
+
 **Sesión 2026-09-13 (`feature/ocr-contract-profile`) — dos hallazgos importantes, sin
 resolver el primero todavía:**
 
