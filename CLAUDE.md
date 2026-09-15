@@ -301,6 +301,72 @@ desarrollo o herramientas de navegador en esta sesión (sección 11).
 
 ## 13. Estado actual
 
+**Sesión 2026-09-15 (`feature/ocr-contract-profile`) — un problema nuevo, sin resolver,
+que bloquea medir field accuracy real. Pendientes concretos para retomar mañana
+(2026-09-16):**
+
+**1. PROBLEMA ENCONTRADO, sin resolver: `document_validations` está contaminada por
+tests de integración corriendo contra el proyecto Supabase real compartido.** Al
+intentar medir field accuracy real de RF-003 usando `document_validations`
+(`original_extracted_data` vs `validated_data`, dato ya producido por uso real —
+RF-007), se encontró que de 119 filas solo hay **4 patrones distintos** de contenido:
+62 filas idénticas `{"nit":{"value":"123","confidence":0.9}}` (original=validado) y 55
+filas idénticas `{"nit":"111"}` → `{"nit":"222"}` — ambos son fixtures de
+`tests/integration/document-validations-rls.test.ts`, que inserta directamente sobre la
+base real (no hay proyecto Supabase de test aislado ni limpieza posterior). **Solo 2 de
+119 filas son datos reales** (facturas reales de Mansor, una con `proveedor` ilegible
+consistente con el accuracy bajo del modelo, otra con montos en pesos colombianos
+corregidos). Consecuencia: **field accuracy real de RF-003 no se puede medir todavía de
+forma significativa** — 2 muestras no alcanzan. No se borró ni modificó ninguna fila en
+esta sesión (acción sobre estado compartido, requiere decisión del equipo primero).
+Pendiente para mañana: (a) decidir qué hacer con las 117 filas de fixtures (limpiarlas o
+dejarlas), (b) decidir cómo aislar los tests de integración de la base real en adelante
+(proyecto Supabase de test dedicado, o cleanup automático al final de la suite) — mismo
+riesgo puede estar afectando otras tablas, no se revisó el resto en esta sesión.
+
+**2. Character accuracy de `invoice_es` remedido, con discrepancia sin explicar:**
+`npm run verify:model-accuracy` da **74.5% (1809/2427)** contra el modelo activo
+`version=2026-09-07T17:50:04.173Z` — distinto del **73.8%** documentado en
+`docs/ocr/evaluation.md` (medido 2026-09-10 contra `version=...17:28:15.287Z`). Alguien
+reentrenó/reactivó un modelo nuevo después de esa sesión sin documentarlo. Pendiente:
+confirmar con el equipo cuándo/por qué, y actualizar `docs/ocr/evaluation.md` con la
+versión y cifra correctas.
+
+**3. Diagnóstico de las confusiones más frecuentes (`l→I`, `0→D`, `i→I`, `P→p`, `8→B`,
+`s→S`, `o→O`, `5→S`), con causa real identificada:** son casi todas pares de forma casi
+idéntica (mayúscula/minúscula, dígito/letra parecida) — `normalizeCharacter`
+(`src/modules/ocr/segmentation/normalize-character.ts`) redimensiona todo carácter a un
+lienzo fijo de 32×32 antes de HOG, borrando la pista de tamaño relativo que distinguiría
+esos pares (limitación estructural ya documentada en `docs/ocr/training.md` §7.5.3, no
+un bug). Se confirmó además desbalance de clases real en `ocr_training_samples`: p.ej.
+`I` tiene 757 muestras en `train` contra 129 de `l` y 156 de `i` — la clase con más
+muestras "gana" la confusión. Sweep de `k` (1,3,5,7,9,11,15,21) contra partición
+`validation` (nunca `test`): `k=1` da 78.59% vs. 78.39% del `k=3` actual — ganancia
+marginal (~0.2pp), no es un lever real.
+
+**4. Tres scripts nuevos en `bin/`, sin commitear todavía (decisión pendiente: quedarse
+como herramientas permanentes tipo `verify-active-model-accuracy.ts`, o descartarse):**
+`check-confused-class-counts.ts` (conteo por clase/partición), `sweep-k-on-validation.ts`
+(sweep de `k` sobre `validation`), `measure-field-accuracy.ts` (field accuracy real
+desde `document_validations` — el que reveló el problema del punto 1). Ningún archivo de
+producción se tocó en esta sesión; todo fue medición de solo lectura contra Supabase
+real vía `SUPABASE_SERVICE_ROLE_KEY` (`.env.local`).
+
+**5. Pendientes concretos para mañana, en orden de prioridad:**
+   1. Resolver el punto 1 (aislar tests de `document_validations` real / decidir sobre
+      las 117 filas de fixtures) — bloquea cualquier medición honesta de field accuracy.
+   2. Conseguir validaciones reales de facturas de Mansor esta semana (mínimo ~15-20
+      documentos) subiendo y validando por la UI, para tener una muestra significativa en
+      `document_validations`.
+   3. Actualizar `docs/ocr/evaluation.md` con la versión de modelo activo y el 74.5%
+      correctos (punto 2).
+   4. Etiquetar en OCR LAB más muestras reales para las clases subrepresentadas de los
+      pares confundidos: `l`, `i`, `p`, `s`, `o`, `D`, `B`.
+   5. Evaluar hacer case-insensitive la comparación del campo `proveedor` en
+      `field-extraction-helpers.ts` (hoy no lo es, verificado) — candidata a mejorar
+      field accuracy sin tocar el modelo.
+   6. Decidir si los 3 scripts del punto 4 se quedan en el repo o se descartan.
+
 **Sesión 2026-09-13 (`feature/ocr-contract-profile`) — dos hallazgos importantes, sin
 resolver el primero todavía:**
 
