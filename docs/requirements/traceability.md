@@ -17,6 +17,7 @@ se marcan `IMPLEMENTED` (documentación) donde aplica.
 | RF-005 | Consultar documentos con filtros (proveedor, fecha, monto, estado, id) | `modules/documents` | `src/modules/documents/queries.ts`, `src/app/(dashboard)/documents/page.tsx`, `src/app/(dashboard)/admin/documents/page.tsx` (Fase 6: columna de accuracy/validado + búsqueda por id) | `tests/integration/document-filters.test.ts` (12/12 verde) | status/fecha/id **VERIFIED** con datos reales; proveedor/monto **IMPLEMENTED** (query correcta contra muestra sintética de `ocr_results`, sin datos reales que filtrar hasta RF-002/RF-003 en Fase 4/5 — no es un bug, es orden de fases) |
 | RF-006 | Integración contable (SIIGO u otra) | — | — | — | **DEFERRED** |
 | RF-007 | Validación humana de datos extraídos, con trazabilidad original/validado | `modules/documents` (validation-logic, save-validation), `app/(dashboard)/documents/[id]` (validation-section, validation-summary), `app/(dashboard)/admin/validations` (Fase 6: renombrada desde `admin/validation-dashboard`, agrega ediciones por usuario y tendencia) | lógica pura: `tests/unit/modules/documents/validation-logic.test.ts` (13/13), `tests/unit/modules/admin/stats.test.ts` (8/8); RLS/inmutabilidad contra Supabase real: `tests/integration/document-validations-rls.test.ts` (10/10) | IN_PROGRESS — persistencia y RLS **VERIFIED** contra el proyecto real; interacción de UI (edición inline, colores de confianza, botones) sin verificación automatizada posible en esta sesión (`CLAUDE.md` §11) — pendiente de verificación manual por el equipo, ver checklist de la Fase 5 |
+| RF-008 | Reportería financiera por usuario: gasto total, agrupado por día y por NIT/identificación, filtrable por rango de fechas (agregado 2026-09-15, fuera de la numeración de fases, vía REQUERIMIENTO AFECTADO de `CLAUDE.md` §3, aprobado por Diego) | `modules/documents` (date-parsing, financial-summary, financial-summary-query), `app/(dashboard)/reports` | lógica pura: `tests/unit/modules/documents/date-parsing.test.ts` (12/12), `financial-summary.test.ts` (9/9); RLS/aislamiento por usuario contra Supabase real: `tests/integration/financial-summary-rls.test.ts` (3/3, no ejecutado en esta sesión por falta de credenciales reales) | IMPLEMENTED (no VERIFIED) — lógica de fechas/agregación **VERIFIED** con `tsc`/`eslint`/tests unitarios; el test de RLS está escrito y verificado por lectura contra el mismo patrón de `document-validations-rls.test.ts`, pero el equipo debe correrlo con credenciales reales (`npm run test`) para confirmarlo; interacción de UI sin verificación automatizada posible en esta sesión (`CLAUDE.md` §11) |
 
 ## Requerimientos no funcionales
 
@@ -803,3 +804,69 @@ descripción/bullets/tip, y confirma el delay distinto por bloque. 340/340 en el
 proyecto, estable en 2 corridas. `tsc`, `eslint` y `build` limpios. Sin verificación
 visual en navegador real (`CLAUDE.md` §11) -- particularmente sin confirmar que el
 rebote de `--ease-bounce` se sienta bien y no exagerado.
+
+## RF-008: Reportería financiera por usuario (`feature/financial-summary-reports`)
+
+Trabajo puntual fuera de la numeración de fases (`CLAUDE.md` §3, `feature/nombre`),
+ramificado desde `main` ya actualizado con los contratos multi-página (`20f9a73`).
+Agregado vía el proceso formal de REQUERIMIENTO AFECTADO -- no era parte del alcance
+original de ninguna fase -- con aprobación explícita de Diego Alejandro Medina
+Martinez, comunicada por Andrés Felipe Moreno Beltrán (2026-09-15).
+
+**Motivación real, en palabras del equipo:** el OCR por sí solo (RF-002/RF-003) es "un
+método fácil de subir la factura" -- el propósito real de gestión financiera de la
+tesis requiere poder **consultar** lo digitalizado: cuánto se gastó, con quién, y en
+qué rango de fechas. Esa consulta no existía todavía (el dashboard de `/admin` ya
+existente es salud operativa del pipeline OCR, no gasto financiero).
+
+**Decisiones de diseño, ambas dadas explícitamente por el equipo, no asumidas por esta
+sesión:**
+
+1. **Alcance por usuario, no consolidado para toda Mansor.** Decisión deliberada de
+   control interno: si un NIT tiene facturas repartidas entre dos empleados y uno omite
+   subir alguna, la vista por-usuario hace evidente la diferencia al contrastar lo que
+   cada quien subió individualmente -- una vista consolidada ocultaría exactamente ese
+   caso. El equipo fue explícito en que esto es una decisión de alcance/presupuesto
+   para un proyecto que reconocen como escalable, no una limitación técnica de esta
+   versión.
+2. **El rango de fechas filtra por la fecha impresa en el documento
+   (`validated_data.fecha`), nunca por `documents.created_at` (fecha de subida).** Esta
+   sesión propuso originalmente usar la fecha de subida (más simple, evita depender de
+   OCR/validación); el equipo la rechazó explícitamente: usar la fecha de subida
+   "daña la idea de consulta" porque no refleja el movimiento financiero real de la
+   empresa en un rango específico (ej. las 15 facturas del mes se suben todas a fin de
+   mes, pero corresponden a fechas distintas). Es seguro porque la fecha siempre pasa
+   por validación humana (RF-007) antes de contarse -- nunca se usa el dato crudo del
+   OCR sin supervisar.
+
+**Otras reglas de honestidad de datos, consistentes con el resto del proyecto:** solo
+documentos `status='validated'` entran en los totales (los pendientes se cuentan y se
+muestran aparte, nunca se ocultan); una fecha no interpretable se excluye del total
+(nunca se adivina) y se cuenta/reporta aparte, corregible desde el detalle del
+documento.
+
+**Archivos:** `src/modules/documents/date-parsing.ts` (`parseInvoiceDate`, ISO +
+D/M/AAAA día-primero colombiano, validación real de calendario incluyendo bisiestos),
+`financial-summary.ts` (`buildFinancialSummary`, agregación pura), y
+`financial-summary-query.ts` (`getFinancialSummarySource`, arma la fuente de datos
+scoped por `owner_id` -- sin política RLS nueva, reusa la de `documents`/
+`document_validations`); `src/app/(dashboard)/reports/page.tsx` (página nueva, nav
+"Reportes financieros" en `Sidebar.tsx`, distinto del "Reportes" admin-only existente
+en `/admin/reports`).
+
+**Pruebas:** 21 tests unitarios nuevos (12 de fechas + 9 de agregación), todos verdes,
+sobre matrices calculables a mano (incluye casos límite: 29 de febrero bisiesto/no
+bisiesto, mes fuera de rango, fecha no interpretable, monto no numérico, sin
+documentos). `tests/integration/financial-summary-rls.test.ts` (3 casos) sigue el
+mismo patrón que `document-validations-rls.test.ts` -- dos usuarios reales con el
+mismo NIT a propósito, confirma que cada uno solo ve su propio resumen -- pero **no se
+ejecutó en esta sesión** (sin credenciales reales de Supabase); queda para que el
+equipo lo corra con `npm run test`.
+
+**Verificado en esta sesión:** `tsc --noEmit` limpio, `eslint` limpio, 363/363 tests
+unitarios, patch verificado aplicando limpio (`git am`) sobre un clon nuevo de
+`origin/main` con la misma batería de verificación repetida ahí. `npm run build`
+falla por un límite de red del sandbox (no alcanza `fonts.googleapis.com` para
+`next/font`) -- confirmado como previo e independiente de este cambio (falla igual
+en `origin/main` sin el patch). Pendiente de verificación real por el equipo:
+`npm run build` completo y la suite de integración con credenciales reales.

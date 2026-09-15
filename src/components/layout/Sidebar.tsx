@@ -21,6 +21,11 @@ const MAIN_NAV: NavItem[] = [
   { href: "/documents/new", label: "Nuevo documento" },
   { href: "/contracts", label: "Contratos" },
   { href: "/contracts/new", label: "Nuevo contrato" },
+  // RF-008 (2026-09-15): reportería financiera del usuario, distinta de
+  // "Reportes" de la sección Admin (CSV/JSON del sistema completo, Fase
+  // 6) -- por eso el label es más largo, para no confundirse en el nav
+  // de un usuario ADMIN, que ve ambas secciones.
+  { href: "/reports", label: "Reportes financieros" },
 ];
 
 /**

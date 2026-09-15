@@ -34,6 +34,16 @@ verificación real de accuracy (73.8% medido en esta sesión sobre la partición
 que probablemente contaba train+validation+test) en
 `docs/decisions/0003-perfil-ocr-contratos.md`.
 
+## RF-008: Reportería financiera por usuario -- fuera de secuencia, autorizado explícitamente
+
+Agregado en `feature/financial-summary-reports` (2026-09-15), sin fase propia asignada
+en la tabla de arriba -- mismo criterio que el perfil de contratos: se avanzó directo
+durante el cierre de Fase 8, vía el proceso de REQUERIMIENTO AFECTADO de `CLAUDE.md`
+§3, con aprobación explícita de Diego Alejandro Medina Martinez. Detalle completo de
+las decisiones de diseño (alcance por usuario, uso de la fecha impresa en el
+documento en vez de la fecha de subida) en `docs/requirements/traceability.md`,
+sección "RF-008: Reportería financiera por usuario".
+
 ## Notas
 
 - RF-006 (integración contable) permanece `DEFERRED` en todo el roadmap salvo
