@@ -411,48 +411,6 @@ real vía `SUPABASE_SERVICE_ROLE_KEY` (`.env.local`).
       field accuracy sin tocar el modelo.
    6. Decidir si los 3 scripts del punto 4 se quedan en el repo o se descartan.
 
-**Sesión 2026-09-15 (`fix/ocr-money-table-header-contamination`, mismo día, tercer
-hallazgo sobre la heurística de `Proveedor`) — "Proveedor Tecnológico" (disclaimer
-obligatorio DIAN) y un segundo bug en `findProveedorNearNit`:**
-
-Tras el fix anterior (más abajo, "cuarto bug real de parseo de montos + primera
-heurística de Proveedor"), Andrés probó de nuevo y reportó que el campo seguía mal:
-"siempre esta colocando... 'Tecnológico: World Office Colombia SAS'... del texto plano
-de OCR que te pase ahi puedes ver que se reporta bien al final ese nombre" (el nombre
-real de la empresa SÍ aparece, correcto, más al final del documento). Root cause,
-confirmado corriendo `extractFields` contra el texto OCR real completo (no solo el
-fragmento recortado usado en los tests, que no incluía esta línea): toda factura
-electrónica colombiana (DIAN) trae, por obligación normativa, una línea fija
-`"Fabricante y Proveedor Tecnológico: <software>..."` identificando el SOFTWARE con el
-que se generó la factura, nunca el nombre de la empresa real. `PROVEEDOR_KEYWORDS`
-incluía la palabra suelta `"Proveedor"`, así que esa línea (aunque casi al final del
-documento) le ganaba a cualquier otra heurística con confidence 0.9, porque
-`extractKeywordLineField` recorre el documento desde el principio y toma la primera
-línea que matchee. Confirmado en LAS DOS facturas reales de la sesión: la línea es
-idéntica en ambas (mismo software, World Office) -- no es un caso aislado de un
-documento, es un patrón del formato DIAN. Fix: se saca `"Proveedor"` de
-`PROVEEDOR_KEYWORDS` (`field-extraction.ts`), quedan `"Emisor"`, `"Razón Social"`,
-`"Señor"` (más específicas, no aparecen en ese disclaimer).
-
-Al re-verificar el fix contra el texto real completo de la PRIMERA factura (antes solo
-probada con el fragmento recortado), apareció un SEGUNDO bug, no reportado por Andrés
-pero encontrado proactivamente antes de entregar: `findProveedorNearNit` buscaba la
-primera línea que matcheara el patrón de NIT a secas, y esa factura trae ANTES del NIT
-real un número de autorización de facturación electrónica de 14 dígitos, del cual
-cualquier tira de 9-11 dígitos matcheaba la alternativa suelta del patrón -- la
-heurística terminaba caminando hacia atrás desde la línea equivocada. Fix: exigir que
-la línea tenga TAMBIÉN una keyword de NIT (`"NIT"`/`"N.I.T"`) antes de considerarla la
-línea del NIT real -- el número de autorización nunca viene junto a esa palabra. Con
-ambos fixes, las dos facturas reales dan el nombre correcto (`"FERRETERIA DANIMAR SAS"`
-limpio en la primera; `"» DISTRIBUCIONES 5.A.S. SOSA"`, con ruido de OCR pero
-reconocible, en la segunda).
-
-3 tests de regresión nuevos (disclaimer de Proveedor Tecnológico con nombre de software
-ficticio -- el texto del disclaimer en sí es igual en ambas facturas reales, frase
-estándar DIAN, no dato privado; número de autorización confundido con NIT; y el ajuste
-del test de keyword de "Proveedor:" a "Emisor:"). Verificado: `tsc`/`eslint` limpios,
-352/352 tests unitarios.
-
 **Sesión 2026-09-15 (`fix/ocr-money-table-header-contamination`, mismo día, segunda
 factura real) — cuarto bug real de parseo de montos + primera heurística de
 `Proveedor`:**
