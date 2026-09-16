@@ -1,6 +1,7 @@
 import type { OCRLine, OCRResult } from "@/modules/ocr/pipeline/ocr-pipeline";
 import {
   type ExtractedField,
+  buildKeywordRegex,
   extractKeywordLineField,
   extractMoneyField,
   extractStringField,
@@ -37,7 +38,27 @@ const FECHA_KEYWORDS = ["Fecha", "Emisión", "Emision", "Date"];
 const IVA_KEYWORDS = ["IVA", "Impuesto"];
 const VALOR_KEYWORDS = ["Valor", "Subtotal"];
 const TOTAL_KEYWORDS = ["Total"];
-const PROVEEDOR_KEYWORDS = ["Proveedor", "Emisor", "Razón Social", "Razon Social", "Señor", "Senor"];
+/**
+ * "Proveedor" se sacó de esta lista (2026-09-15, tercer hallazgo del mismo
+ * día, reportado por Andrés: el campo seguía saliendo mal -- "Tecnológico:
+ * World Office Colombia SAS", el nombre del PROVEEDOR TECNOLÓGICO, no el de
+ * la empresa facturadora). Causa: toda factura electrónica colombiana
+ * (DIAN) trae, por obligación normativa, el texto fijo "Fabricante y
+ * Proveedor Tecnológico: <software de facturación> ..." identificando el
+ * SOFTWARE con el que se generó la factura -- nunca es el nombre de la
+ * empresa real. Confirmado en LAS DOS facturas reales de esta sesión: en
+ * ambas aparece la misma línea, generada por el mismo software (World
+ * Office), y en ambas la keyword "Proveedor" enganchaba esa línea primero
+ * (`extractKeywordLineField` recorre línea por línea desde el principio del
+ * documento, así que la keyword que matchea más arriba gana, sin importar
+ * qué tan al final del documento esté esa línea de disclaimer). No es un
+ * caso aislado de esta factura -- es una frase estándar del formato DIAN,
+ * así que la palabra "Proveedor" sola es una keyword poco confiable en este
+ * dominio. Se sigue confiando en "Emisor"/"Razón Social"/"Señor" (más
+ * específicas, no aparecen en ese disclaimer) y en la heurística posicional
+ * `findProveedorNearNit` para el resto de los casos.
+ */
+const PROVEEDOR_KEYWORDS = ["Emisor", "Razón Social", "Razon Social", "Señor", "Senor"];
 
 /**
  * Frases de relleno tributario que casi siempre aparecen ENTRE el nombre
@@ -97,10 +118,25 @@ function trimAfterCompanySuffix(text: string): string {
  * (0.5). El equipo debe seguir mandando facturas reales de proveedores
  * distintos para confirmar que el patrón se sostiene, no solo con dos
  * casos (honestidad de datos, mismo criterio que el resto del proyecto).
+ *
+ * **Bug real encontrado probando esta heurística contra el texto OCR
+ * COMPLETO de la primera factura** (no solo el fragmento recortado del
+ * test): buscar la primera línea que matchee `NIT_PATTERN` a secas
+ * encuentra una línea equivocada si el documento trae ANTES otro número
+ * largo que por longitud también parece un NIT -- en ese caso concreto, el
+ * número de autorización de facturación electrónica de la DIAN
+ * ("...Numeración Facturación Electrónica No. 18764067245641...", 14
+ * dígitos, de los cuales cualquier tira de 9-11 matchea la alternativa
+ * suelta de `NIT_PATTERN`) aparece varias líneas antes del NIT real, y
+ * hace que el "hacia atrás desde ahí" agarre ruido de encabezado en vez del
+ * nombre real. Fix: exigir que la línea tenga TAMBIÉN alguna keyword de
+ * `NIT_KEYWORDS` ("NIT"/"N.I.T") -- el número de autorización nunca viene
+ * junto a esa palabra, así que ya no compite.
  */
 function findProveedorNearNit(ocrResult: OCRResult): ExtractedField<string> | null {
   const nitPattern = new RegExp(NIT_PATTERN.source, NIT_PATTERN.flags.replace("g", ""));
-  const nitLineIndex = ocrResult.lines.findIndex((line) => nitPattern.test(line.text));
+  const nitKeywordPattern = new RegExp(NIT_KEYWORDS.map((keyword) => buildKeywordRegex(keyword, "i").source).join("|"), "i");
+  const nitLineIndex = ocrResult.lines.findIndex((line) => nitKeywordPattern.test(line.text) && nitPattern.test(line.text));
   if (nitLineIndex <= 0) return null;
 
   const MAX_LOOKBACK = 5;

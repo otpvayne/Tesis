@@ -161,6 +161,16 @@ crecimiento, no una confirmación de que el rendimiento está resuelto.
    entre la keyword explícita (0.9) y el fallback ciego (0.5). Sigue siendo una
    heurística posicional sin confirmar con más de dos casos; ver `CLAUDE.md` §13
    para el pedido al equipo de más facturas reales.
+
+   **Nota importante sobre `"Proveedor"` como keyword**: se sacó de
+   `PROVEEDOR_KEYWORDS` (mismo día, tercer hallazgo) porque toda factura electrónica
+   colombiana trae, por obligación normativa DIAN, el disclaimer fijo `"Fabricante y
+   Proveedor Tecnológico: <software>..."` identificando el software de facturación,
+   nunca el nombre real de la empresa — con esa keyword en la lista, ese disclaimer
+   (case casi siempre al final del documento) le ganaba a cualquier heurística mejor.
+   Si se necesita reconocer una etiqueta explícita de "Proveedor" en algún formato
+   futuro, no basta con volver a agregar la palabra suelta: hay que excluir
+   específicamente las líneas que contengan también `"Tecnológico"`.
 4. **Sin heurística de relación numérica** (Total/Valor/IVA) para el caso sin ninguna
    keyword — ver §4.
 5. **Solo facturas en español, formato relativamente estándar** — heredado de

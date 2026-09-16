@@ -93,9 +93,76 @@ describe("extractFields", () => {
   });
 
   it("proveedor: keyword seguida del nombre en la misma línea", () => {
-    const ocrResult = makeOCRResult(["Proveedor: Acme Suministros SAS", "NIT 900123456"]);
+    // "Emisor:" y no "Proveedor:" -- ver el comentario de PROVEEDOR_KEYWORDS
+    // en field-extraction.ts sobre por qué "Proveedor" se sacó de la lista
+    // (factura real, 2026-09-15: la palabra "Proveedor" solo aparece en el
+    // disclaimer obligatorio de la DIAN "Fabricante y Proveedor
+    // Tecnológico", nunca como etiqueta del nombre real de la empresa).
+    const ocrResult = makeOCRResult(["Emisor: Acme Suministros SAS", "NIT 900123456"]);
     const fields = extractFields(ocrResult);
     expect(fields.proveedor).toMatchObject({ value: "Acme Suministros SAS", confidence: 0.9 });
+  });
+
+  /**
+   * Tercer bug real reportado por Andrés el mismo día, sobre la misma
+   * segunda factura: el campo seguía saliendo mal, esta vez con
+   * "Tecnológico: World Office Colombia SAS" -- el nombre del PROVEEDOR
+   * TECNOLÓGICO (la empresa de software que generó la factura electrónica),
+   * no el de la empresa que realmente la emite. Toda factura electrónica
+   * colombiana (DIAN) trae, por obligación normativa, una línea fija
+   * "Fabricante y Proveedor Tecnológico: <software>..." -- como
+   * `extractKeywordLineField` recorre el documento desde el principio y la
+   * keyword "Proveedor" existía en la lista, esa línea (aunque está casi al
+   * final del documento) ganaba con confidence 0.9 sobre cualquier otra
+   * heurística. Confirmado en LAS DOS facturas reales de esta sesión (mismo
+   * software, misma línea textual) -- no es un caso aislado de un solo
+   * documento, así que la palabra "Proveedor" se sacó de
+   * `PROVEEDOR_KEYWORDS` (ver ese comentario). Nombre del software
+   * ficticio, aunque el texto del disclaimer en sí es el mismo en ambas
+   * facturas reales (frase estándar de la DIAN, no dato privado de un
+   * proveedor de Mansor).
+   */
+  it("no confunde el 'Proveedor Tecnológico' (disclaimer obligatorio de la DIAN, casi siempre al final del documento) con el nombre real de la empresa que emite la factura", () => {
+    const ocrResult = makeOCRResult([
+      "» DISTRIBUIDORA EJEMPLO 5.A.S. ACME",
+      "Nit. 900.564.101-0",
+      "Responsable del IVA No somos Agentes de Retención de IVA",
+      "No somos Grandes Contribuyentes Ni Autorretenedores",
+      "SUBTOTAL 156.975",
+      "IVA 29.825",
+      "TOTAL DE LA OPERACION 186.800",
+      "Fabricante y Proveedor Tecnológico: Software Ejemplo SAS NIT 900999888-1 Software: Software Ejemplo",
+    ]);
+
+    const fields = extractFields(ocrResult);
+
+    expect(fields.proveedor).toMatchObject({ value: "» DISTRIBUIDORA EJEMPLO 5.A.S. ACME", confidence: 0.6 });
+  });
+
+  /**
+   * Bug real encontrado probando `findProveedorNearNit` contra el texto OCR
+   * COMPLETO de la primera factura (no solo el fragmento recortado del test
+   * de arriba): buscar la primera línea que matchee el patrón de NIT a
+   * secas encuentra una línea equivocada si el documento trae ANTES otro
+   * número largo con pinta de NIT -- en ese caso concreto, el número de
+   * autorización de facturación electrónica de la DIAN (14 dígitos, de los
+   * cuales cualquier tira de 9-11 matchea la alternativa suelta del
+   * patrón) aparece varias líneas antes del NIT real. Fix: exigir que la
+   * línea tenga TAMBIÉN una keyword de NIT ("NIT"/"N.I.T") -- el número de
+   * autorización nunca viene junto a esa palabra.
+   */
+  it("no confunde un número largo sin relación con el NIT (p. ej. un número de autorización de facturación) con la línea del NIT real", () => {
+    const ocrResult = makeOCRResult([
+      "Documento Oficial de Autorización de Numeración Facturación Electrónica No. 18764067245641",
+      "EMPRESA EJEMPLO SAS Régimen Común No somos Agentes de Retención de IVA",
+      "No somos Grandes Contribuyentes",
+      "Nit 901147580 Actividad Económica ICA 4752",
+    ]);
+
+    const fields = extractFields(ocrResult);
+
+    expect(fields.proveedor).toMatchObject({ value: "EMPRESA EJEMPLO SAS", confidence: 0.6 });
+    expect(fields.nit.value).toBe("901147580");
   });
 
   it("proveedor: sin keyword, pero con una línea justo arriba del NIT -> usa esa línea (heurística posicional, confidence media)", () => {
