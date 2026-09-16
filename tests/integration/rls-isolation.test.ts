@@ -2,7 +2,7 @@ import "./env";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import { createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
+import { cleanupTestUsers, createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
 
 /**
  * Prueba de integración contra el proyecto Supabase real (sin stack local
@@ -73,8 +73,7 @@ beforeAll(async () => {
 }, 30000);
 
 afterAll(async () => {
-  if (userAId) await admin.auth.admin.deleteUser(userAId);
-  if (userBId) await admin.auth.admin.deleteUser(userBId);
+  await cleanupTestUsers(admin, [userAId, userBId]);
 }, 30000);
 
 describe("RLS: aislamiento de documents entre usuarios", () => {
