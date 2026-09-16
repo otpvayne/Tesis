@@ -27,8 +27,18 @@ export interface ExtractedField<T> {
  * el fin de una keyword del inicio del valor para considerarlo "adyacente"
  * — cubre separadores típicos (`: `, `. `, varios espacios) sin ser tan
  * amplio que enganche el valor de OTRO campo cercano.
+ *
+ * Ampliado de 15 a 20 (2026-09-15, factura real de Mansor -- Ferretería
+ * Danimar): con 15, "TOTAL DE LA OPERACIÓN 24.750" (18 caracteres entre el
+ * fin de "Total" y el inicio del monto, por el resto de la etiqueta) caía
+ * FUERA de la ventana y el campo `total` bajaba a confidence 0.7 en vez de
+ * 0.95, aunque igual acertaba el valor por el criterio de distancia. 20 es
+ * suficiente para esa etiqueta larga sin volverse tan amplio como para
+ * cruzar a la fila de la tabla de ítems (ver el fix de
+ * `isPrecededByLetter`/mínimo de dígitos abajo, que es el que de verdad
+ * evita esa contaminación).
  */
-export const ADJACENT_WINDOW = 15;
+export const ADJACENT_WINDOW = 20;
 
 export interface FieldMatch {
   raw: string;
@@ -144,8 +154,9 @@ export function extractStringField(ocrResult: OCRResult, pattern: RegExp, keywor
 
 /**
  * Monto en pesos colombianos: NUNCA tiene centavos de uso práctico, y el
- * punto es separador de MILES, no decimal (`71.000` = 71.000 pesos, no
- * 71.00). Antes este patrón asumía formato de dólares (`\d+[.,]\d{2}`,
+ * separador de MILES (`.` en el formato real, aunque ver más abajo por
+ * qué también se acepta `,`) no es un decimal (`71.000` = 71.000 pesos,
+ * no 71.00). Antes este patrón asumía formato de dólares (`\d+[.,]\d{2}`,
  * exactamente 2 decimales) — bug real encontrado probando con facturas
  * reales de Mansor (2026-09-08): a "11.334" (COP) le extraía "11.33"
  * (le comía el último dígito), y a "71.000" le extraía "71.00"
@@ -155,25 +166,58 @@ export function extractStringField(ocrResult: OCRResult, pattern: RegExp, keywor
  * comparten `extractMoneyField` — no era un problema de reconocimiento
  * de caracteres, sino de cómo se interpretaba el texto ya reconocido.
  *
- * Dos alternativas: (1) grupos de miles con punto, `\d{1,3}(\.\d{3})+`,
- * con decimales opcionales tras coma (`11.334,50`); (2) tira de dígitos
- * sin separador (`150000`) con los mismos decimales opcionales — cubre
- * el caso en que el OCR no reconoce los puntos de miles como caracteres
- * separados.
+ * **Segundo bug real, distinto, encontrado el 2026-09-15 con una factura
+ * real de Ferretería Danimar** (Andrés reportó que volvía a salir "1" en
+ * IVA/Valor/Total): la tabla de ítems repite las mismas palabras que se
+ * buscan como keyword -- el encabezado dice literalmente
+ * "... | IVA | Valor IVA Total" y la fila 1 empieza inmediatamente
+ * después con el NÚMERO DE FILA ("1 E141 [ESCUADRA..."). Con la ventana
+ * de `ADJACENT_WINDOW` original, ese "1" caía pegado al keyword del
+ * encabezado y ganaba por sobre el valor real (que está más abajo, en la
+ * sección de totales). Dos causas concretas, dos fixes:
+ *
+ * 1. Un candidato de 1-2 dígitos sueltos (el número de fila, o una
+ *    cantidad como "10") casi nunca es un monto real de IVA/Valor/Total
+ *    -- se sube el mínimo de la alternativa sin separador de `\d+` a
+ *    `\d{3,}`.
+ * 2. Un candidato pegado a una LETRA (p. ej. "141" dentro del código de
+ *    producto "E141") tampoco es un monto -- es un dígito que quedó
+ *    "adentro" de otro token. Se agrega `(?<![A-Za-zÀ-ÿ])` justo antes de
+ *    cada alternativa numérica (no antes del `$`/espacio opcional, que sí
+ *    puede preceder un monto real) para excluirlo. El mismo problema
+ *    existe del otro lado: un código como "VISP.001CU" (2026-09-15,
+ *    segunda factura real -- la letra que precede a "001" es un punto, no
+ *    una letra, así que solo la regla anterior no alcanza) deja "001"
+ *    SEGUIDO de una letra ("CU"), algo que un monto real nunca tiene --
+ *    se agrega también `(?![A-Za-zÀ-ÿ])` al final de cada alternativa.
+ *
+ * **Tercer detalle, mismo caso real:** la sección de totales de esa misma
+ * factura trae "IVA 3,952" con COMA en vez de punto -- el OCR confundió
+ * los dos glifos (frecuente en escaneos de baja resolución), pero el
+ * resto de la misma factura sí usa punto ("SUBTOTAL 20.798",
+ * "TOTAL ... 24.750"). Si se interpreta la coma siempre como decimal
+ * (como antes), "3,952" se leía "3,95" (perdía el último dígito) en vez
+ * de 3952. Ahora CUALQUIERA de los dos separadores (`.`/`,`) se acepta
+ * como separador de miles cuando agrupa exactamente 3 dígitos, y como
+ * decimal solo cuando quedan 1-2 dígitos sueltos al final -- así no
+ * importa cuál de los dos glifos reconoció el OCR.
  */
-const MONEY_PATTERN = /\$?\s?\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\$?\s?\d+(?:,\d{1,2})?/g;
+const MONEY_PATTERN =
+  /\$?\s?(?<![A-Za-zÀ-ÿ])\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?(?![A-Za-zÀ-ÿ])|\$?\s?(?<![A-Za-zÀ-ÿ])\d{3,}(?:[.,]\d{1,2})?(?![A-Za-zÀ-ÿ])/g;
 
 /**
  * Convierte el texto ya emparejado por `MONEY_PATTERN` a un número real:
- * quita `$`/espacios, quita los puntos de MILES (no son decimales en
- * formato colombiano), y solo entonces convierte una coma decimal (si la
- * hay) a punto para que `parseFloat` la entienda. Separada de
- * `extractMoneyField` para poder testear la conversión numérica sola,
- * sin pasar por `findBestMatch`.
+ * quita `$`/espacios, quita los separadores de MILES (grupos de
+ * exactamente 3 dígitos -- no son decimales en formato colombiano, ver
+ * comentario de `MONEY_PATTERN` sobre por qué se acepta tanto `.` como
+ * `,` como separador de miles), y solo entonces normaliza el separador
+ * decimal que haya quedado (si lo hay, 1-2 dígitos) a punto para que
+ * `parseFloat` lo entienda. Separada de `extractMoneyField` para poder
+ * testear la conversión numérica sola, sin pasar por `findBestMatch`.
  */
 export function parseColombianMoney(raw: string): number {
-  const withoutThousands = raw.replace(/[$\s]/g, "").replace(/\.(?=\d{3})/g, "");
-  return parseFloat(withoutThousands.replace(",", "."));
+  const withoutThousands = raw.replace(/[$\s]/g, "").replace(/[.,](?=\d{3})/g, "");
+  return parseFloat(withoutThousands.replace(/[.,]/, "."));
 }
 
 export function extractMoneyField(ocrResult: OCRResult, keywords: string[]): ExtractedField<number> {
