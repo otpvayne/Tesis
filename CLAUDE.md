@@ -114,8 +114,11 @@ histórica salvo que el equipo pida explícitamente eliminarla.
 
 Aplicación **web** únicamente (Next.js). No React Native / Expo / apps nativas. Mobile
 first, funcional en desktop, tablet, Android e iPhone vía navegador. Cámara vía
-`navigator.mediaDevices.getUserMedia()` con fallback `<input type="file"
-accept="image/jpeg,image/png" capture="environment">`. Formatos: JPG, JPEG, PNG. **No
+`navigator.mediaDevices.getUserMedia()` (componente propio `CameraCapture`) con
+fallback `<input type="file" accept="image/jpeg,image/png">` **sin** `capture`
+(corregido 2026-09-16, ver §13 -- `capture="environment"` forzaba el input a abrir
+solo la cámara del sistema en móvil, bloqueando elegir una foto de la galería, que es
+justo el caso de uso del fallback). Formatos: JPG, JPEG, PNG. **No
 PDF en v1.** No PWA todavía (marcar decisiones que la afectarían como `FUTURE-PWA`, sin
 bloquearla). No modo offline.
 
