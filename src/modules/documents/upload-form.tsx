@@ -217,7 +217,6 @@ export function UploadDocumentForm({ documentType, documentTypeLabel, title, des
               type="file"
               name="file"
               accept="image/jpeg,image/png"
-              capture="environment"
               multiple={allowMultiplePages}
               required={selectedFiles.length === 0}
               onChange={handleManualFileChange}
