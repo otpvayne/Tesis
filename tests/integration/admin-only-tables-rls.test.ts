@@ -2,7 +2,7 @@ import "./env";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import { createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
+import { cleanupTestUsers, createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
 
 /**
  * Fase 7 (testing): gap real encontrado -- `ocr_models` y
@@ -68,8 +68,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (modelId) await admin.from("ocr_models").delete().eq("id", modelId);
   if (sampleId) await admin.from("ocr_training_samples").delete().eq("id", sampleId);
-  if (userId) await admin.auth.admin.deleteUser(userId);
-  if (adminId) await admin.auth.admin.deleteUser(adminId);
+  await cleanupTestUsers(admin, [userId, adminId]);
 }, 30000);
 
 describe("RLS: ocr_models es is_admin()-only", () => {

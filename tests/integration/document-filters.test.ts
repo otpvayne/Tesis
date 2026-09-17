@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import { listDocuments } from "@/modules/documents/queries";
-import { createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
+import { cleanupTestUsers, createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
 
 /**
  * Verifica los filtros de listDocuments (RF-005) contra el proyecto real:
@@ -85,7 +85,7 @@ beforeAll(async () => {
 }, 30000);
 
 afterAll(async () => {
-  if (userId) await admin.auth.admin.deleteUser(userId);
+  await cleanupTestUsers(admin, [userId]);
 }, 30000);
 
 describe("listDocuments: filtro por status", () => {

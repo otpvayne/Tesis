@@ -2,7 +2,7 @@ import "./env";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import { createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
+import { cleanupTestUsers, createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
 import { getFinancialSummarySource } from "@/modules/documents/financial-summary-query";
 
 /**
@@ -93,8 +93,7 @@ beforeAll(async () => {
 }, 30000);
 
 afterAll(async () => {
-  if (userAId) await admin.auth.admin.deleteUser(userAId);
-  if (userBId) await admin.auth.admin.deleteUser(userBId);
+  await cleanupTestUsers(admin, [userAId, userBId]);
 }, 30000);
 
 describe("RF-008: getFinancialSummarySource aísla por usuario", () => {

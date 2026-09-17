@@ -2,7 +2,7 @@ import "./env";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import { createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
+import { cleanupTestUsers, createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
 
 /**
  * Extiende el patrón de rls-isolation.test.ts a Storage: un usuario no debe
@@ -102,9 +102,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await admin.storage.from(BUCKET).remove([objectPath]);
-  if (userAId) await admin.auth.admin.deleteUser(userAId);
-  if (userBId) await admin.auth.admin.deleteUser(userBId);
-  if (userCId) await admin.auth.admin.deleteUser(userCId);
+  await cleanupTestUsers(admin, [userAId, userBId, userCId]);
 }, 30000);
 
 describe("RLS: aislamiento de Storage entre usuarios", () => {

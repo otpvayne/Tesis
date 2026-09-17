@@ -2,7 +2,7 @@ import "./env";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import { createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
+import { cleanupTestUsers, createTestAdminClient, createTestAnonClient } from "./supabase-test-clients";
 
 /**
  * Verifica, contra el proyecto Supabase real, las mismas consultas
@@ -75,8 +75,7 @@ beforeAll(async () => {
 }, 30000);
 
 afterAll(async () => {
-  if (userId) await admin.auth.admin.deleteUser(userId);
-  if (adminId) await admin.auth.admin.deleteUser(adminId);
+  await cleanupTestUsers(admin, [userId, adminId]);
 }, 30000);
 
 describe("Reporte de documentos: embed anidado documents -> ocr_results / document_validations -> profiles", () => {
@@ -110,7 +109,7 @@ describe("Reporte de documentos: embed anidado documents -> ocr_results / docume
     expect(error).toBeNull();
     expect(data).toHaveLength(0);
 
-    await admin.auth.admin.deleteUser(otherUser.user.id);
+    await cleanupTestUsers(admin, [otherUser.user.id]);
   });
 });
 
