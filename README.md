@@ -3,7 +3,7 @@
 Proyecto de grado de Ingeniería de Software: digitalización de documentos financieros
 físicos (inicialmente facturas de proveedor en español) mediante captura desde
 navegador y un motor OCR **desarrollado desde cero por el equipo**, para la empresa
-Mansor, en conjunto con NETRIX Corporation.
+Mansor
 
 > Estado actual: **Fase 8 — Deploy final: integración, versionado y documentación (en
 > cierre).** Fases 4-7 integradas a `main`. Ver la sección
