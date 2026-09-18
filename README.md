@@ -315,6 +315,91 @@ Tag de este cierre: `v0.5.0-complete` (se crea al fusionar esta fase a `main`, j
 el merge — `CLAUDE.md` §3, tags solo al integrar). Ver [`CHANGELOG.md`](CHANGELOG.md)
 para el historial completo.
 
+## 🎥 Guion del video de sustentación — reparto por integrante
+
+División del código/funcionamiento del proyecto en 3 partes para el video, una por
+integrante. Cada quien revisa solo su sección antes de grabar — si algo no está claro,
+preguntar en el grupo antes, no improvisar en cámara.
+
+### 1️⃣ Diego — Arquitectura básica
+
+Cómo está armado el sistema por fuera del OCR: stack, estructura de carpetas, modelo de
+datos, seguridad.
+
+- **Stack y despliegue:** Next.js 16 (App Router, Turbopack) + React 19 + TypeScript
+  `strict`, Supabase (PostgreSQL, Auth nativo, Storage), Vercel. Ver tabla de versiones
+  reales en la sección ["Stack"](#stack) arriba.
+- **Estructura de la app** (`src/app/`): grupos de rutas `(auth)/` (login/registro) y
+  `(dashboard)/` (`documents/`, `contracts/`, `ocr-lab/`, `admin/`, `reports/`),
+  Route Handlers en `api/`, `src/proxy.ts` (antes `middleware.ts`, renombrado en
+  Next 16) protegiendo `/admin/*` con chequeo optimista de sesión.
+- **Módulos de dominio** (`src/modules/`): `auth/`, `documents/`, `camera/`, `admin/`,
+  `audit/` — separados del módulo `ocr/` (que cubre Santiago). Server
+  Components/Client Components/Route Handlers usados solo donde aporta, no todo es
+  `"use client"`.
+- **Modelo de datos y seguridad:** tablas principales (`documents`, `document_pages`,
+  `document_validations`, `ocr_models`, `ocr_training_samples`, `audit_logs`), roles
+  **USER**/**ADMIN**, y por qué el aislamiento de datos vive en **Row Level Security de
+  Postgres** y no en el frontend — `SUPABASE_SERVICE_ROLE_KEY` nunca llega al navegador.
+  Detalle: [`docs/architecture/overview.md`](docs/architecture/overview.md) y
+  [`docs/architecture/data-model.md`](docs/architecture/data-model.md).
+- **Captura de imagen:** `CameraCapture` (`navigator.mediaDevices.getUserMedia()`) con
+  fallback a `<input type="file">` sin `capture="environment"` (para no bloquear elegir
+  foto de galería en móvil — ver `CLAUDE.md` §4).
+
+### 2️⃣ Santiago — Funcionamiento y entrenamiento del OCR
+
+El motor OCR propio de punta a punta, y cómo se entrena. Esta es la parte medida y
+evaluable de la tesis — la que responde si el pipeline "desde cero" realmente funciona.
+
+- **Pipeline propio** (`src/modules/ocr/`), etapa por etapa: preprocesamiento
+  (`preprocessing/` — grayscale, histograma, Otsu, binarización, morfología) →
+  segmentación (`segmentation/` — componentes conectados, normalización de carácter a
+  32×32) → clasificación (`classification/` — HOG propio + kNN propio) → extracción de
+  campos (`pipeline/`, `field-extraction.ts` — cómo se arma texto reconocido en
+  Proveedor/NIT/Fecha/IVA/Valor/Total, con las heurísticas y bugs reales resueltos
+  documentados en `CLAUDE.md` §13) → evaluación (`evaluation/`). Fórmulas documentadas
+  en [`docs/ocr/algorithms.md`](docs/ocr/algorithms.md).
+- **Confidence score:** siempre calculado desde información real del pipeline (nunca
+  aleatorio) — mostrar de dónde sale el número que ve el usuario en la validación.
+- **Entrenamiento (OCR LAB, solo admin):** `/ocr-lab/train`, `src/modules/ocr/training/`
+  — split estricto train/validation/test, por qué `test` nunca se usa para entrenar,
+  cómo se etiqueta un carácter, cómo se activa un modelo nuevo. Detalle:
+  [`docs/ocr/training.md`](docs/ocr/training.md).
+- **Resultado real medido:** accuracy actual del modelo activo (ver tabla en "OCR
+  Pipeline" arriba — **73.8%** sobre la partición `test` real, no sintética), qué
+  confusiones de caracteres son más frecuentes y por qué (`l`/`I`, `0`/`D`, etc. — ver
+  `CLAUDE.md` §13, causa estructural documentada en `docs/ocr/training.md` §7.5.3).
+- **Perfiles OCR:** `invoice_es` (modelo propio HOG+kNN) vs. `contract_es` (siempre
+  Tesseract.js, sin modelo propio entrenado — ver ADR-0003). Explicar honestamente el
+  motor Tesseract.js como plan de contingencia de terceros, **no** parte del pipeline
+  propio medido (`CLAUDE.md` §7, riesgo documentado para la sustentación).
+
+### 3️⃣ Andres — Resto del sistema (flujo de usuario, validación, admin, testing)
+
+Todo lo que conecta la arquitectura de Diego con el OCR de Santiago en un producto
+usable, y cómo se verificó.
+
+- **Flujo de usuario (RF-001/RF-004/RF-005):** subir/capturar documento
+  (`/documents/new`, `/contracts/new`), almacenamiento en Supabase Storage (bucket
+  privado, URLs firmadas, ruta `{user_id}/{document_id}/...`), consulta con filtros
+  (`/documents`), soporte multi-página para contratos (`document_pages`).
+  Módulo: `src/modules/documents/`.
+- **Validación humana (RF-007):** `/documents/[id]`, botón "Procesar documento",
+  `ValidationSection`/`ValidationSummary` — edición inline de campos, trazabilidad
+  original vs. validado en `document_validations`, botón "Rechazar documento".
+- **Panel de administración (Fase 6):** `/admin` (KPIs reales), `/admin/documents`,
+  `/admin/validations` (tendencia de ediciones por usuario), `/admin/models`
+  (activar/desactivar modelo OCR), `/admin/reports` (CSV/JSON descargables).
+- **Testing y calidad:** separación unit/integration/e2e/OCR benchmark
+  (`docs/testing/test-plan.md`), estado real de la suite (323/323 tests, 95.1% de
+  cobertura de statements en los módulos con tests — ver "🏆 Estado final — Fase 8"),
+  qué quedó pendiente de verificación manual en navegador (`CLAUDE.md` §11) y por qué.
+- **Deploy:** qué está listo para Vercel y qué falta confirmar — ver
+  [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), sección "Status por componente" arriba.
+
+---
+
 ## Proceso de trabajo
 
  Una rama de Git por fase
